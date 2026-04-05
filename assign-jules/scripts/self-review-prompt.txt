@@ -1,0 +1,35 @@
+Before submitting, do a thorough self-review of everything you changed. Check each category and report what you find:
+
+## 1. Does this actually fix the problem?
+- Re-read the original issue description
+- Trace through your code changes with a concrete example — does the fix handle the exact scenario described?
+- Are there other callers or code paths that have the same bug but you only fixed one?
+
+## 2. Edge cases
+- What happens with empty input? Zero-length arrays, empty strings, None/null values?
+- What happens at boundaries? Off-by-one in loops, integer overflow, maximum values?
+- What happens on error? Does every fallible call have proper error handling, not just unwrap/expect?
+
+## 3. Tests
+- Did you add or update tests for every code path you changed?
+- Do your tests cover the bug scenario from the issue (regression test)?
+- Do your tests cover at least one edge case (empty, boundary, error)?
+- Run the tests — do they actually pass?
+
+## 4. Unintended side effects
+- Did you change any public API signatures? If so, did you update all callers?
+- Did you change any behavior that other code depends on?
+- Are there any imports you added but don't use, or imports you removed that are still needed?
+
+## 5. Documentation and conventions
+- Read CLAUDE.md — does your code follow the project conventions?
+- Did you update doc comments for any public functions you changed?
+- If you added a new public item, does it have a /// doc comment?
+
+## 6. Build and lint
+- Run: cargo build --workspace
+- Run: cargo clippy --workspace -- -D warnings
+- Run: cargo fmt --all --check
+- Fix anything that fails before submitting.
+
+If you find ANY issues in the above checks, fix them now and push an update. Only submit when all checks pass.
