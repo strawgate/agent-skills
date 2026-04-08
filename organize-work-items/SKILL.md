@@ -88,12 +88,22 @@ This gives you:
 - existing metas / phases / epics
 - existing work units
 - orphan issues not linked from a work unit yet
+- grep-friendly title indexes and one-file-per-record dumps for issues and PRs
 
 Read these outputs before proposing any changes:
 
 - `/tmp/issue-organizer/OWNER__REPO/summary.txt`
 - `/tmp/issue-organizer/OWNER__REPO/meta-summary.md`
 - `/tmp/issue-organizer/OWNER__REPO/work-unit-summary.md`
+- `/tmp/issue-organizer/OWNER__REPO/issue-titles.txt`
+- `/tmp/issue-organizer/OWNER__REPO/pr-titles.txt`
+- `/tmp/issue-organizer/OWNER__REPO/issues/open/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/open/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/merged/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/closed/*.txt`
+
+Start with the title indexes to shortlist candidates, then grep the per-record
+files when you need to cluster by subsystem, wording, or linked work.
 
 ## Step 3: Apply the Work-Unit Lens
 

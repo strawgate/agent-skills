@@ -156,26 +156,91 @@ gh pr merge PR_NUMBER --repo OWNER/REPO --squash
 
 ## Resolving Review Comments
 
-After fixing review feedback, resolve addressed threads:
+Every PR triage round MUST include a thread resolution pass. Do not leave addressed feedback unresolved — it creates noise and blocks merge signals.
+
+### Step 1: List all unresolved threads with details
+
 ```bash
-# List unresolved threads
 gh api graphql -f query='{
   repository(owner: "OWNER", name: "REPO") {
     pullRequest(number: PR_NUMBER) {
       reviewThreads(first: 100) {
-        nodes { id isResolved comments(first: 1) { nodes { body } } }
+        nodes {
+          id
+          isResolved
+          isOutdated
+          comments(first: 1) {
+            nodes {
+              author { login }
+              body
+              path
+              line
+            }
+          }
+        }
       }
     }
   }
-}'
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {id: .id, outdated: .isOutdated, author: .comments.nodes[0].author.login, path: .comments.nodes[0].path, line: .comments.nodes[0].line, body: (.comments.nodes[0].body[:300] | gsub("\n"; " "))}'
+```
 
-# Resolve a thread
+### Step 2: Categorize each unresolved thread
+
+For each thread, determine:
+
+- **OUTDATED + FIXED**: `isOutdated == true` AND the concern was addressed in a later commit. **Action: Resolve.**
+- **ACTIVE + FIXED**: `isOutdated == false` but the code on the branch already addresses the concern (reviewer looked at an older commit). **Action: Resolve.**
+- **ACTIVE + VALID**: The concern is real and not yet addressed. **Action: Fix the code OR reply explaining why it won't be addressed, then leave unresolved.**
+- **NOISE**: Bot false positive, opinion-level style nit, or concern about code outside the PR's scope. **Action: Resolve.**
+
+### Step 3: Resolve addressed threads
+
+```bash
 gh api graphql -f query='mutation {
   resolveReviewThread(input: { threadId: "THREAD_ID" }) {
     thread { isResolved }
   }
 }'
 ```
+
+To resolve multiple threads at once:
+```bash
+for tid in THREAD_ID_1 THREAD_ID_2 THREAD_ID_3; do
+  gh api graphql -f query="mutation { resolveReviewThread(input: { threadId: \"$tid\" }) { thread { isResolved } } }" --jq '.data.resolveReviewThread.thread.isResolved'
+done
+```
+
+### Step 4: Reply to threads you won't address
+
+For valid concerns that are intentionally deferred (e.g., perf optimizations, architectural decisions):
+
+```bash
+gh api repos/OWNER/REPO/pulls/PR_NUMBER/comments \
+  -f body="Acknowledged — this is a valid concern but deferred to a follow-up. Tracked in #ISSUE_NUMBER." \
+  -f in_reply_to=COMMENT_ID
+```
+
+Or post a general PR comment:
+```bash
+gh pr comment PR_NUMBER --repo OWNER/REPO --body "Remaining unresolved threads are acknowledged as follow-up work: ..."
+```
+
+### Step 5: Verify zero unresolved
+
+After resolution, confirm:
+```bash
+gh api graphql -f query='{
+  repository(owner: "OWNER", name: "REPO") {
+    pullRequest(number: PR_NUMBER) {
+      reviewThreads(first: 100) {
+        nodes { isResolved }
+      }
+    }
+  }
+}' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
+```
+
+Target: **0 unresolved threads** before marking a PR as merge-ready.
 
 ## Common Copilot PR Issues
 
