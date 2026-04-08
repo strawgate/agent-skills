@@ -7,6 +7,8 @@ Reusable AI agent skills for Claude Code and VS Code Copilot.
 | Skill | Description |
 |-------|-------------|
 | [assign-copilot](assign-copilot/SKILL.md) | Assign GitHub issues to Copilot coding agent with model and custom agent selection |
+| [assign-codex-fanin](assign-codex-fanin/SKILL.md) | Collect Codex Cloud task outputs, inspect attempts, and synthesize one recommendation or integration plan |
+| [assign-codex-fanout](assign-codex-fanout/SKILL.md) | Split a task into workstreams and launch Codex Cloud fanout with multiple attempts per workstream |
 | [bench-compare](bench-compare/SKILL.md) | Run benchmarks, compare against a baseline, and format results for PR bodies |
 | [go-perf](go-perf/SKILL.md) | Go performance optimization — profile, benchmark, isolate, and format results |
 | [kani](kani/SKILL.md) | Write and audit Kani proof harnesses — exhaustive verification, function contracts, solver selection |

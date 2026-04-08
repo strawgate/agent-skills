@@ -6,7 +6,7 @@ argument-hint: "[owner/repo and optional scope e.g. 'strawgate/logfwd', 'strawga
 
 # Issue Audit
 
-Audit all open GitHub issues against merged PRs, open PRs, and the current codebase. Produce a structured report identifying issues that can be closed, narrowed, or deduplicated.
+Audit all open GitHub issues against recently closed PRs, merged PRs, recent commits, open PRs, and the current codebase. Produce a structured report identifying issues that can be closed, narrowed, deduplicated, or marked stale after investigation.
 
 ## Step 0: Determine the Target Repo
 
@@ -35,69 +35,45 @@ Also check for prior audit results:
 find . -iname "*audit*" -o -iname "*triage*" | grep -i issue
 ```
 
-## Phase 2: Download All Open Issues
+## Phase 2: Fetch Shared Repo Data and Grep-Friendly Artifacts
 
-Fetch every open issue with full metadata. Use pagination to get all of them:
-
-```bash
-# Get total count first
-gh api repos/OWNER/REPO/issues?state=open\&per_page=1 \
-  --jq length 2>/dev/null
-gh issue list --repo OWNER/REPO --state open --limit 1 \
-  --json totalCount -q '.[0] // empty'
-
-# Download all open issues with full detail
-gh issue list --repo OWNER/REPO --state open --limit 500 \
-  --json number,title,body,labels,assignees,milestone,createdAt,updatedAt,comments \
-  > /tmp/issues-open.json
-
-# Count what we got
-jq length /tmp/issues-open.json
-```
-
-If more than 500 issues exist, paginate:
-```bash
-PAGE=1
-echo '[]' > /tmp/issues-open.json
-while true; do
-  BATCH=$(gh api "repos/OWNER/REPO/issues?state=open&per_page=100&page=$PAGE&direction=asc" \
-    --jq '[.[] | select(.pull_request == null)]')
-  [ "$(echo "$BATCH" | jq length)" -eq 0 ] && break
-  jq -s '.[0] + .[1]' /tmp/issues-open.json <(echo "$BATCH") > /tmp/issues-open-tmp.json
-  mv /tmp/issues-open-tmp.json /tmp/issues-open.json
-  PAGE=$((PAGE + 1))
-done
-```
-
-## Phase 3: Download All PRs (Open and Closed/Merged)
+Use the shared fetch script so stale-issue audits and work-unit planning read the
+same normalized artifact set:
 
 ```bash
-# All merged PRs (these are what fix issues)
-gh pr list --repo OWNER/REPO --state merged --limit 500 \
-  --json number,title,body,mergedAt,headRefName,labels \
-  > /tmp/prs-merged.json
-
-# All open PRs (in-flight work)
-gh pr list --repo OWNER/REPO --state open --limit 500 \
-  --json number,title,body,isDraft,headRefName,labels \
-  > /tmp/prs-open.json
-
-# All closed-not-merged PRs (abandoned work — useful for context)
-gh pr list --repo OWNER/REPO --state closed --limit 500 \
-  --json number,title,body,headRefName,labels,mergedAt \
-  | jq '[.[] | select(.mergedAt == null)]' \
-  > /tmp/prs-closed.json
-
-echo "Merged: $(jq length /tmp/prs-merged.json)"
-echo "Open:   $(jq length /tmp/prs-open.json)"
-echo "Closed: $(jq length /tmp/prs-closed.json)"
+/Users/billeaston/.claude/skills/organize-meta-issues/scripts/fetch-repo-data.sh OWNER/REPO
 ```
 
-For repos with extensive history, paginate merged PRs the same way as issues.
+This writes to:
 
-## Phase 4: Build the Cross-Reference Map
+- `/tmp/issue-organizer/OWNER__REPO/summary.txt`
+- `/tmp/issue-organizer/OWNER__REPO/open-issues.json`
+- `/tmp/issue-organizer/OWNER__REPO/open-prs.json`
+- `/tmp/issue-organizer/OWNER__REPO/merged-prs.json`
+- `/tmp/issue-organizer/OWNER__REPO/closed-prs.json`
 
-For each open issue, search for evidence of resolution. This phase produces *candidates* — issues that might be resolved. Phase 5 verifies them against the actual codebase before promoting any candidate to "Definitely Resolved."
+And it also creates grep-friendly views:
+
+- `/tmp/issue-organizer/OWNER__REPO/issue-titles.txt` — just `#N Title`
+- `/tmp/issue-organizer/OWNER__REPO/pr-titles.txt` — `[state] #N Title`
+- `/tmp/issue-organizer/OWNER__REPO/issues/open/*.txt` — one file per open issue
+- `/tmp/issue-organizer/OWNER__REPO/prs/open/*.txt` — one file per open PR
+- `/tmp/issue-organizer/OWNER__REPO/prs/merged/*.txt` — one file per merged PR
+- `/tmp/issue-organizer/OWNER__REPO/prs/closed/*.txt` — one file per closed/unmerged PR
+
+Prefer these per-record text files when you want to grep or hand batches to
+subagents. Use the JSON files for exact field extraction.
+
+Always note the snapshot timestamp from `summary.txt` before drawing any stale
+conclusions. The audit must be tied to a concrete fetch time so recent merges,
+closes, and commits are evaluated against the right state of the repo.
+
+## Phase 4: Build the Resolution Map
+
+For each open issue, search for evidence that it is already resolved, partially
+resolved, or obsolete. This phase produces *candidates* — issues that might be
+resolved. Phase 5 verifies them against the actual codebase before promoting any
+candidate to "Definitely Resolved."
 
 ### 4a. Explicit references in PRs
 
@@ -105,28 +81,40 @@ PRs that mention issue numbers (Fixes #N, Closes #N, Resolves #N, or just #N):
 
 ```bash
 # Search merged PR bodies and titles for each issue number
-for ISSUE_NUM in $(jq -r '.[].number' /tmp/issues-open.json); do
+for ISSUE_NUM in $(jq -r '.[].number' /tmp/issue-organizer/OWNER__REPO/open-issues.json); do
   MATCHES=$(jq -r --arg n "#$ISSUE_NUM" \
     '.[] | select(.title + " " + (.body // "") | test($n)) | "#\(.number) \(.title)"' \
-    /tmp/prs-merged.json)
+    /tmp/issue-organizer/OWNER__REPO/merged-prs.json)
   if [ -n "$MATCHES" ]; then
     echo "Issue #$ISSUE_NUM -> $MATCHES"
   fi
 done
 ```
 
-### 4b. Branch name references
+### 4b. Recently closed PRs and linked issues
+
+Cross-reference recently closed PRs and issues for the same area, especially
+when closure happened after a small fix or a follow-up commit. Look for:
+
+- closing keywords in PR bodies or issue comments
+- recent commits touching the same files or functions
+- issue numbers referenced in commit messages, branch names, or review comments
+
+If a recent closed PR appears to have landed the fix, verify the current code
+directly instead of closing on the reference alone.
+
+### 4c. Branch name references
 
 ```bash
 # PRs with branch names referencing issue numbers
-for ISSUE_NUM in $(jq -r '.[].number' /tmp/issues-open.json); do
+for ISSUE_NUM in $(jq -r '.[].number' /tmp/issue-organizer/OWNER__REPO/open-issues.json); do
   jq -r --arg n "$ISSUE_NUM" \
     '.[] | select(.headRefName | test("(^|[^0-9])" + $n + "($|[^0-9])")) | "#\(.number) branch=\(.headRefName)"' \
-    /tmp/prs-merged.json 2>/dev/null
+    /tmp/issue-organizer/OWNER__REPO/merged-prs.json 2>/dev/null
 done
 ```
 
-### 4c. Comment-based references
+### 4d. Comment-based references
 
 ```bash
 # For high-value issues, fetch comments to see if someone said "fixed in PR #X"
@@ -134,7 +122,7 @@ gh api repos/OWNER/REPO/issues/ISSUE_NUM/comments \
   --jq '.[].body' 2>/dev/null
 ```
 
-### 4d. Duplicate and overlap detection
+### 4e. Duplicate and overlap detection
 
 PR cross-references only find resolved issues — they miss duplicates entirely. This step compares issues against each other.
 
@@ -181,7 +169,7 @@ Similarly, verify duplicate candidates:
 >
 > **PAIR: #N vs #M**
 > Claim: Both describe [X].
-> - Read both issue bodies from /tmp/issues-open.json
+> - Read both issue bodies from `/tmp/issue-organizer/OWNER__REPO/issues/open/*.txt` (or the matching JSON entry in `open-issues.json`)
 > - Check the codebase to confirm they describe the same thing
 > - Are they truly identical in scope or does one have broader/different coverage?
 
@@ -210,10 +198,17 @@ After verification, assign each open issue to exactly one category.
 - Has a parent meta/epic, OR
 - Is newer and better scoped
 
-**Stale** — No activity in 6+ months AND:
-- The feature area has changed significantly, OR
-- The issue describes a problem that may no longer exist, OR
-- The issue is a feature request that doesn't align with current direction
+**Stale** — Investigation suggests the issue is probably already resolved,
+superseded, or no longer relevant. Use this only after checking recent closed
+PRs, recent commits, linked issues, and the current codebase. Typical signals:
+- a merged or closed PR appears to have implemented the fix, even if the issue
+  was never explicitly closed
+- the same behavior now exists in code or docs in a different form
+- the issue is superseded by a newer issue, design, or refactor
+- the original bug or feature no longer fits current direction
+
+Do not use age alone as the reason to mark something stale. Age is only a
+triage signal that tells you where to look first.
 
 **Overlapping Metas** — Meta/epic issues that partially overlap in scope. These shouldn't be closed but need scope clarification.
 
@@ -282,7 +277,9 @@ Some work done, some remaining. **Action: comment on the issue with remaining sc
 
 #### Stale Issues
 
-Issues with no activity and unclear relevance. **Action: comment asking if still relevant, close after 30 days with no response.**
+Issues that appear resolved, superseded, or no longer relevant after
+investigation. **Action: comment with evidence and close if the codebase and
+recent history support resolution.**
 
 | Issue | Title | Last Activity | Why Stale |
 |-------|-------|---------------|-----------|
@@ -324,7 +321,7 @@ gh issue comment N --repo OWNER/REPO --body "This issue has been open with no ac
 
 ## Guidelines
 
-- **Read issue bodies.** Titles are misleading. An issue titled "HTTP retry" might actually be about connection pooling once you read it.
+- **Read issue bodies.** Titles are misleading. An issue titled "HTTP retry" might actually be about connection pooling once you read it. Start with `issue-titles.txt`, then open the per-issue `.txt` files for the candidates you shortlist.
 - **Read PR bodies and diffs.** A PR that references an issue might only partially fix it. Check the actual changes.
 - **PR cross-reference is necessary but not sufficient.** A PR that says "Fixes #N" might fix only part of #N, might have been reverted, or might have fixed the issue in one place while the same bug exists in others. Always verify against current code before classifying as Definitely Resolved.
 - **Be conservative with "Definitely Resolved."** If there's any doubt, put it in "Likely Resolved" instead. False closures waste more time than leaving issues open.
