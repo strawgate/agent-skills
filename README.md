@@ -16,6 +16,7 @@ Reusable AI agent skills for Claude Code and VS Code Copilot.
 | [pr-triage](pr-triage/SKILL.md) | Triage, review, fix, and manage open PRs for a GitHub repo |
 | [proptest](proptest/SKILL.md) | Property-based testing — strategy design, oracle testing, state machine testing, bolero integration |
 | [repo-onboard](repo-onboard/SKILL.md) | Quickly onboard to a repository — docs, structure, recent activity, CI status |
+| [refresh-yourself](refresh-yourself/SKILL.md) | Refresh project context after time away using a generated snapshot of PRs/issues/commits/files |
 | [research](research/SKILL.md) | Deep research into a library, pattern, technique, or codebase question |
 | [tla-audit](tla-audit/SKILL.md) | Audit TLA+/TLC specifications — property strength, liveness, abstraction gaps, state space coverage |
 
