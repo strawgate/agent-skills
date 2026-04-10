@@ -1,0 +1,4 @@
+assign-jules/scripts/.reviewed-sessions
+
+__pycache__/
+*.pyc
