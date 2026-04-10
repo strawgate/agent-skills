@@ -1,7 +1,7 @@
 ---
 name: assign-jules
-description: Assign GitHub issues to Jules (Google's coding agent), send self-review prompts to completed sessions, or archive sessions with merged/closed PRs. Use when the user says "assign to jules", "give to jules", "jules this issue", "assign-jules", "review ready", "archive jules sessions", or "clean up jules". For issue assignment, require the API-key flow so Jules can auto-create a PR; never use the CLI fallback that requires manual PR publishing.
-argument-hint: "[issue numbers] or [review ready] or [review SESSION_ID] or [reply SESSION_ID message] or [archive] or [archive --dry-run]"
+description: Assign GitHub issues to Jules (Google's coding agent), check for Jules sessions awaiting user feedback, send self-review prompts to completed sessions, or archive sessions with merged/closed PRs. Use when the user says "assign to jules", "give to jules", "jules this issue", "assign-jules", "review ready", "archive jules sessions", "clean up jules", or "check jules questions". For issue assignment, require the API-key flow so Jules can auto-create a PR; never use the CLI fallback that requires manual PR publishing.
+argument-hint: "[issue numbers] or [questions] or [review ready] or [review SESSION_ID] or [reply SESSION_ID message] or [archive] or [archive --dry-run]"
 allowed-tools: Bash
 ---
 
@@ -11,6 +11,17 @@ Before assigning issues, ensure `JULES_API_KEY` is set in the environment.
 If it is missing, stop and tell the user to configure it first.
 Do **not** use any fallback path that creates a Jules session without
 `automationMode: AUTO_CREATE_PR`.
+
+Before assigning new work, check whether any Jules sessions are blocked
+waiting for us:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/check-questions.sh
+```
+
+If there are `AWAITING_USER_FEEDBACK` sessions, surface them to the user and
+either answer those questions first or explicitly confirm we still want to fan
+out more work.
 
 Parse issue numbers from arguments, detect repo, and run:
 
@@ -26,6 +37,12 @@ Expected behavior:
 - report the Jules session URL(s) back to the user
 - if `JULES_API_KEY` is not configured, fail fast instead of creating a
   non-auto-PR session
+- send a prompt that clearly states Jules only sees the default-branch repo,
+  the GitHub issue, and the prompt text we provide
+- tell Jules to refresh against the latest default branch before resuming after
+  delays or review feedback
+- tell Jules to keep PRs tightly scoped and avoid shipping helper scripts or
+  partial scaffolding
 
 ## Review all completed sessions
 
@@ -36,6 +53,14 @@ bash ${CLAUDE_SKILL_DIR}/scripts/review-all.sh
 ```
 
 Tracks which sessions have been reviewed in `.reviewed-sessions` so it never double-sends.
+
+Before doing this, also run:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/check-questions.sh
+```
+
+and tell the user if there are blocked sessions that need answers.
 
 ## Review a specific session
 
@@ -50,6 +75,18 @@ bash ${CLAUDE_SKILL_DIR}/scripts/reply.sh SESSION_ID "custom message"
 ```
 
 Report session URLs back to the user.
+
+## Check sessions waiting on us
+
+When the user says "check jules questions", "blocked jules sessions", or
+"what is Jules waiting for", run:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/check-questions.sh
+```
+
+This reports every session in `AWAITING_USER_FEEDBACK` with the Jules URL so we
+can open it and answer the question directly in Jules.
 
 ## Archive completed sessions
 

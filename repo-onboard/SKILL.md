@@ -14,7 +14,7 @@ Rapidly build context on the current repository so you can work effectively.
 Read these files if they exist (skip missing ones silently):
 - `README.md`
 - `DEVELOPING.md` / `CONTRIBUTING.md`
-- `CLAUDE.md` / `AGENTS.md`
+- `AGENTS.md`
 - `docs/ARCHITECTURE.md` or any architecture doc
 - `CHANGELOG.md` (last 2-3 entries only)
 

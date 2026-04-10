@@ -17,7 +17,7 @@ Run through all open PRs for a repo, triage them, review code, fix issues, and p
 - [Unmark PR in progress (remove your `:eyes:`)](./scripts/unmark-pr-in-progress.sh)
 
 Note: `fetch-pr-context.sh` now delegates to the shared user script at
-`${CODEX_HOME:-$HOME/.codex}/skills/_shared/github-pr-context/scripts/fetch-pr-context.sh`
+`../_shared/github-pr-context/scripts/fetch-pr-context.sh`
 while preserving the same CLI and default output path for this skill.
 
 ## Step 0: Determine the Target Repo

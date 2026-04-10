@@ -36,7 +36,7 @@ Prefer the manifest created by `$assign-codex-fanout`.
 Use:
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanin/scripts/collect-cloud-artifacts.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/collect-cloud-artifacts.py \
   <manifest.json>
 ```
 
@@ -107,7 +107,7 @@ Depending on the task, the synthesis can be:
 ## Example
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanin/scripts/collect-cloud-artifacts.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/collect-cloud-artifacts.py \
   dev-docs/research/fanout-2026-04-05/fanout-manifest.json
 ```
 

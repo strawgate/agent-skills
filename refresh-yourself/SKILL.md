@@ -14,7 +14,7 @@ Use this when returning to a repo after time away.
 Run the snapshot script from the repo (or pass `--cwd`):
 
 ```bash
-~/.claude/skills/refresh-yourself/scripts/refresh_snapshot.sh $ARGUMENTS
+${CLAUDE_SKILL_DIR}/scripts/refresh_snapshot.sh $ARGUMENTS
 ```
 
 If no output path is provided, it writes to:

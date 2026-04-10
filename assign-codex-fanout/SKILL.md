@@ -121,7 +121,7 @@ When prior cloud work matters, prefer creating a repo-local summary input first:
 Use:
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanout/scripts/launch-cloud-fanout.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
   --prompt-dir <dir-with-prompts> \
   --attempts 4
 ```
@@ -129,7 +129,7 @@ python3 ~/.claude/skills/assign-codex-fanout/scripts/launch-cloud-fanout.py \
 For mixed-fanout waves, override individual prompts:
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanout/scripts/launch-cloud-fanout.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
   --prompt-dir <dir-with-prompts> \
   --attempts 2 \
   --prompt-attempt <prompt-a>.prompt.md=4 \
@@ -172,7 +172,7 @@ That manifest is the handoff input for `$assign-codex-fanin`.
 ## Example
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanout/scripts/launch-cloud-fanout.py \
+python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
   --cwd /path/to/repo \
   --prompt-dir dev-docs/research/fanout-2026-04-05 \
   --pattern '*.prompt.md' \

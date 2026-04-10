@@ -30,18 +30,42 @@ fi
 for ISSUE_NUM in "$@"; do
     ISSUE_TITLE=$(gh issue view "$ISSUE_NUM" --repo "$REPO" --json title -q '.title')
     ISSUE_BODY=$(gh issue view "$ISSUE_NUM" --repo "$REPO" --json body -q '.body')
+    ISSUE_LABELS=$(gh issue view "$ISSUE_NUM" --repo "$REPO" --json labels -q '[.labels[].name] | join(", ")')
+    ISSUE_URL="https://github.com/${REPO}/issues/${ISSUE_NUM}"
 
     PROMPT="Fix GitHub issue #${ISSUE_NUM}: ${ISSUE_TITLE}
 
 ${ISSUE_BODY}
 
 Repository: ${REPO}
-Issue URL: https://github.com/${REPO}/issues/${ISSUE_NUM}
+Issue URL: ${ISSUE_URL}
+Issue labels: ${ISSUE_LABELS}
 
 Instructions:
-- Read CLAUDE.md for project conventions
-- Run just ci before submitting to verify all checks pass
-- Create a focused PR that addresses only this issue"
+- Start from the repository default branch (${DEFAULT_BRANCH}), not any local developer branch.
+- Before you resume work after delays, review feedback, or a stale branch window, fetch or otherwise refresh against the latest ${DEFAULT_BRANCH} so you are not coding against an old base.
+- Treat your visible world as only: the default-branch repository on GitHub, the GitHub issue body, and this prompt text.
+- You cannot see local worktrees, unpushed commits, unstaged files, branch-only memos, or chat context outside this prompt and the GitHub issue. Do not assume hidden local context exists.
+- If the issue depends on context that is not clearly present on default branch, ask a focused question instead of guessing.
+- Read AGENTS.md first when present, then read the issue carefully, then consult the most relevant repo docs before changing code:
+  - README.md
+  - DEVELOPING.md or CONTRIBUTING.md
+  - architecture docs
+  - verification docs
+  - adapter or protocol contracts when the issue touches runtime or I/O semantics
+- Treat the issue body as the primary task definition. If the issue appears stale, contradictory, or under-specified relative to current main, investigate carefully and ask a focused question in the Jules session instead of guessing.
+- Keep the PR tightly scoped to this issue. Do not opportunistically bundle unrelated cleanup.
+- Minimize unrelated file churn. If you touch extra files outside the obvious issue footprint, either remove those changes or be prepared to justify exactly why they are required.
+- Do not commit one-off helper scripts, scratch files, or mechanical rewrite utilities unless the issue explicitly calls for shipping them in the repository.
+- Before coding, inspect nearby tests and recent related code so the fix matches current architecture rather than an older plan.
+- Add or update regression tests that would fail before the fix and pass after it.
+- Update docs, proofs, or property tests when the changed behavior or contract requires it.
+- Prefer behavior-preserving seam extraction over large rewrites unless the issue explicitly asks for a redesign.
+- Do not stop at scaffolding. If you introduce models, helpers, reducers, or other structure, make sure the real behavior is wired through and exercised by tests before you ask for review.
+- Run the narrowest meaningful verification first, then broader verification as warranted. At minimum, run the tests most directly covering your change. If broader CI-equivalent verification is realistic, run it; otherwise report exactly what you ran and why.
+- If a PR already exists or review feedback arrives, fetch latest ${DEFAULT_BRANCH}, address the concrete feedback, re-check critical CI statuses, and only then say the PR is ready. Do not call a PR merge-ready while requested changes, unresolved correctness concerns, or failing critical checks remain.
+- Before final handoff, do a thorough self-review, trim unrelated changes, and verify the PR description matches the actual code and tests.
+- In the PR body, explain the problem, the root cause, the exact behavioral change, the tests/docs/proofs updated, and any residual risks or follow-up work."
 
     echo "=== Assigning #${ISSUE_NUM}: ${ISSUE_TITLE} ==="
 

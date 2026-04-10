@@ -12,8 +12,7 @@ pr_number="$2"
 out_dir="${3:-/tmp/pr-context/${repo//\//__}/pr-${pr_number}}"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 
-codex_home="${CODEX_HOME:-$HOME/.codex}"
-shared="$codex_home/skills/_shared/github-pr-context/scripts/fetch-pr-context.sh"
+shared="$script_dir/../../_shared/github-pr-context/scripts/fetch-pr-context.sh"
 checklist_builder="$script_dir/build-merge-checklist.sh"
 
 if [[ ! -x "$shared" ]]; then
