@@ -10,13 +10,21 @@ fi
 repo="$1"
 pr_number="$2"
 out_dir="${3:-/tmp/pr-context/${repo//\//__}/pr-${pr_number}}"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
 
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 shared="$codex_home/skills/_shared/github-pr-context/scripts/fetch-pr-context.sh"
+checklist_builder="$script_dir/build-merge-checklist.sh"
 
 if [[ ! -x "$shared" ]]; then
   echo "shared script not found or not executable: $shared" >&2
   exit 1
 fi
 
-exec "$shared" "$repo" "$pr_number" "$out_dir"
+bundle_dir="$("$shared" "$repo" "$pr_number" "$out_dir")"
+
+if [[ -x "$checklist_builder" ]]; then
+  "$checklist_builder" "$bundle_dir" >/dev/null
+fi
+
+echo "$bundle_dir"

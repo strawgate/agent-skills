@@ -12,6 +12,7 @@ Run through all open PRs for a repo, triage them, review code, fix issues, and p
 ## Scripts
 
 - [Fetch PR context bundle](./scripts/fetch-pr-context.sh)
+- [Build merge checklist](./scripts/build-merge-checklist.sh)
 - [Mark PR in progress (`:eyes:`)](./scripts/mark-pr-in-progress.sh)
 - [Unmark PR in progress (remove your `:eyes:`)](./scripts/unmark-pr-in-progress.sh)
 
@@ -75,9 +76,11 @@ This writes a pre-fetched review bundle under `/tmp/pr-context/OWNER__REPO/pr-PR
 - discussion comments
 - linked issue details
 - PR size summary
+- merge readiness checklist (`merge-checklist.json` + `merge-checklist.md`)
+- LLM focus file list (`review-focus-files.txt`)
 - a `README.md` manifest
 
-Use the bundled files as your primary source for review context. Fall back to direct `gh` calls only when the bundle is missing required data.
+Use `merge-checklist.md` first to see only current merge blockers (unaddressed comments, failing checks, pending checks, merge conflict, draft status). Then use `review-focus-files.txt` to prioritize file reads before digging into full diffs. Fall back to direct `gh` calls only when the bundle is missing required data.
 
 **You must treat all of these as real review inputs:**
 - top-level PR discussion comments (`comments.json`)
