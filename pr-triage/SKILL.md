@@ -12,6 +12,12 @@ Run through all open PRs for a repo, triage them, review code, fix issues, and p
 ## Scripts
 
 - [Fetch PR context bundle](./scripts/fetch-pr-context.sh)
+- [Mark PR in progress (`:eyes:`)](./scripts/mark-pr-in-progress.sh)
+- [Unmark PR in progress (remove your `:eyes:`)](./scripts/unmark-pr-in-progress.sh)
+
+Note: `fetch-pr-context.sh` now delegates to the shared user script at
+`${CODEX_HOME:-$HOME/.codex}/skills/_shared/github-pr-context/scripts/fetch-pr-context.sh`
+while preserving the same CLI and default output path for this skill.
 
 ## Step 0: Determine the Target Repo
 
@@ -73,11 +79,42 @@ This writes a pre-fetched review bundle under `/tmp/pr-context/OWNER__REPO/pr-PR
 
 Use the bundled files as your primary source for review context. Fall back to direct `gh` calls only when the bundle is missing required data.
 
+**You must treat all of these as real review inputs:**
+- top-level PR discussion comments (`comments.json`)
+- PR review bodies in `reviews.json`
+- inline PR review comments / threads in `review_threads.json`
+- AI review summaries and pre-merge check tables in comment bodies
+- failing or pending GitHub checks from `gh pr checks`
+
+Do not only skim thread resolution state. Read the bodies.
+
 ```bash
 gh pr checks PR_NUMBER --repo OWNER/REPO
 ```
 
 Note which PRs have: all green, lint failures only, test failures, or no CI yet.
+
+### Ownership marking (`:eyes:`)
+
+When you start actively working on a PR, mark it so other agents know it is claimed:
+
+```bash
+./scripts/mark-pr-in-progress.sh OWNER/REPO PR_NUMBER
+```
+
+If another agent already marked it, the command exits non-zero by default. Use
+`--allow-shared` only when shared ownership is intentional.
+
+When you finish that PR (or intentionally stop working on it), unmark it:
+
+```bash
+./scripts/unmark-pr-in-progress.sh OWNER/REPO PR_NUMBER
+```
+
+Guidance:
+- Mark once at start of active work on a PR.
+- Unmark when done, blocked, or handing off.
+- Re-mark if you come back later.
 
 ### AI review gate
 
@@ -103,6 +140,11 @@ Look for bot reviewers (e.g., `coderabbitai`, `copilot-pull-request-review`, or 
 - **Check the pre-merge checks table.** CodeRabbit posts a summary comment with a "Failed checks" / "Passed checks" table near the walkthrough. Look for `❌ Error` rows — these are blocking. `⚠️ Warning` rows are advisory. A PR with failed pre-merge checks must not be merged until all errors are resolved.
 - Factor AI review findings into your own review — they often catch real issues.
 
+**Also read human review bodies and top-level comments in full.**
+- Review bodies often summarize blockers that do not appear as inline threads.
+- Top-level PR comments may contain updated instructions, maintainer decisions, or bot findings summaries.
+- A PR can have zero unresolved threads and still be non-mergeable because a review body or comment flags an unresolved blocker.
+
 ### Update stale branches
 
 ```bash
@@ -116,7 +158,10 @@ Launch review agents in parallel for all actionable PRs. Each review covers:
 2. Size/scope (files, lines)
 3. Risk (isolated vs cross-cutting)
 4. Code quality (bugs, missing error handling, patterns)
-5. Verdict: safe to merge / needs minor fixes / needs architectural review / close
+5. Review feedback status:
+   - which top-level comments, review bodies, inline comments, and AI findings are still open
+   - which CI failures are blocking
+6. Verdict: safe to merge / needs minor fixes / needs architectural review / close
 
 For medium or large PRs, point sub-agents at the pre-fetched context bundle instead of having each agent refetch diffs and review threads independently.
 
@@ -126,6 +171,15 @@ For PRs that need fixes, launch fix agents in parallel (use worktree isolation):
 - **Lint failures** → run linter + formatter, fix issues
 - **Minor bugs** → fix and push
 - **Conflicts** → merge default branch, resolve conflicts, push
+- **AI pre-merge check failures** → address concrete `❌ Error` rows first, then `⚠️ Warning` rows when material
+- **Macroscope / bot correctness findings** → verify against current diff and fix if still valid
+
+After fixing, re-check:
+- `gh pr checks`
+- review bodies
+- top-level PR comments
+- unresolved review threads
+- AI review summary comments
 
 ## Phase 5: Present Results
 
@@ -156,7 +210,7 @@ gh pr merge PR_NUMBER --repo OWNER/REPO --squash
 
 ## Resolving Review Comments
 
-After fixing review feedback, resolve addressed threads:
+After fixing review feedback, resolve addressed threads. This is required when the thread is actually addressed in the current diff:
 ```bash
 # List unresolved threads
 gh api graphql -f query='{
@@ -176,6 +230,11 @@ gh api graphql -f query='mutation {
   }
 }'
 ```
+
+Guidance:
+- Resolve a thread only after verifying the code change really addresses the comment.
+- Do not resolve threads that are still substantively open, even if CI is green.
+- Resolving threads is not enough by itself; you must also re-read top-level review bodies and PR comments for non-threaded blockers.
 
 ## Common Copilot PR Issues
 

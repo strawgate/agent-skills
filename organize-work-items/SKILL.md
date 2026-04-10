@@ -36,6 +36,9 @@ That means:
 - [Summarize existing meta structure](./scripts/summarize-meta-structure.sh)
 - [Summarize existing work-unit structure](./scripts/summarize-work-unit-structure.sh)
 
+`fetch-repo-data.sh` delegates to the shared inventory script at
+`../_shared/github-repo-inventory/scripts/fetch-repo-data.sh`.
+
 ## Step 0: Determine Repo and Scope
 
 If `$ARGUMENTS` contains an `owner/repo` pattern, use that. Otherwise detect from the current git repo:
@@ -63,7 +66,7 @@ Read these files if they exist:
 
 - `README.md`
 - `DEVELOPING.md` / `CONTRIBUTING.md`
-- `CLAUDE.md` / `AGENTS.md`
+- `AGENTS.md` / `AGENTS.md`
 - `docs/ARCHITECTURE.md` or any architecture doc
 - `ROADMAP.md`
 - `docs/**/*.md`
@@ -88,12 +91,22 @@ This gives you:
 - existing metas / phases / epics
 - existing work units
 - orphan issues not linked from a work unit yet
+- grep-friendly title indexes and one-file-per-record dumps for issues and PRs
 
 Read these outputs before proposing any changes:
 
 - `/tmp/issue-organizer/OWNER__REPO/summary.txt`
 - `/tmp/issue-organizer/OWNER__REPO/meta-summary.md`
 - `/tmp/issue-organizer/OWNER__REPO/work-unit-summary.md`
+- `/tmp/issue-organizer/OWNER__REPO/issue-titles.txt`
+- `/tmp/issue-organizer/OWNER__REPO/pr-titles.txt`
+- `/tmp/issue-organizer/OWNER__REPO/issues/open/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/open/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/merged/*.txt`
+- `/tmp/issue-organizer/OWNER__REPO/prs/closed/*.txt`
+
+Start with the title indexes to shortlist candidates, then grep the per-record
+files when you need to cluster by subsystem, wording, or linked work.
 
 ## Step 3: Apply the Work-Unit Lens
 
