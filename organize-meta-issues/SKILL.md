@@ -21,6 +21,9 @@ Use this skill after an audit or when the repo's issue tree has become messy.
 - [Fetch repo issue/PR data](./scripts/fetch-repo-data.sh)
 - [Summarize existing meta structure](./scripts/summarize-meta-structure.sh)
 
+`fetch-repo-data.sh` delegates to the shared inventory script at
+`../_shared/github-repo-inventory/scripts/fetch-repo-data.sh`.
+
 ## Step 0: Determine Repo and Scope
 
 If `$ARGUMENTS` contains an `owner/repo` pattern, use that. Otherwise detect from the current git repo:
@@ -48,7 +51,7 @@ Read these if they exist:
 
 - `README.md`
 - `DEVELOPING.md` / `CONTRIBUTING.md`
-- `CLAUDE.md` / `AGENTS.md`
+- `AGENTS.md` / `AGENTS.md`
 - `docs/ARCHITECTURE.md` or any architecture doc
 - `ROADMAP.md`
 - `docs/**/*.md`

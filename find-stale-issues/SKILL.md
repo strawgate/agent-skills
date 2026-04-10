@@ -8,6 +8,10 @@ argument-hint: "[owner/repo and optional scope e.g. 'strawgate/logfwd', 'strawga
 
 Audit all open GitHub issues against recently closed PRs, merged PRs, recent commits, open PRs, and the current codebase. Produce a structured report identifying issues that can be closed, narrowed, deduplicated, or marked stale after investigation.
 
+## Scripts
+
+- [Fetch repo issue/PR data](./scripts/fetch-repo-data.sh)
+
 ## Step 0: Determine the Target Repo
 
 If `$ARGUMENTS` contains an `owner/repo` pattern, use that. Otherwise detect from the current git repo:
@@ -24,7 +28,7 @@ Read these files if they exist (skip missing ones silently). This context is ess
 
 - `README.md`
 - `DEVELOPING.md` / `CONTRIBUTING.md`
-- `CLAUDE.md` / `AGENTS.md`
+- `AGENTS.md` / `AGENTS.md`
 - `docs/ARCHITECTURE.md` or any architecture doc
 - `CHANGELOG.md` (last 5-10 entries)
 - `ROADMAP.md` or any roadmap/planning docs
@@ -41,7 +45,7 @@ Use the shared fetch script so stale-issue audits and work-unit planning read th
 same normalized artifact set:
 
 ```bash
-/Users/billeaston/.claude/skills/organize-meta-issues/scripts/fetch-repo-data.sh OWNER/REPO
+./scripts/fetch-repo-data.sh OWNER/REPO
 ```
 
 This writes to:
