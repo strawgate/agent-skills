@@ -13,6 +13,7 @@ Reusable AI agent skills for Claude Code, Codex, and VS Code Copilot.
 | [bench-compare](bench-compare/SKILL.md) | Run benchmarks, compare against a baseline, and format results for PR bodies |
 | [bug-hunt](bug-hunt/skill.md) | Hunt for real production-impacting bugs, file issues, and periodically land fixes with regression coverage |
 | [find-stale-issues](find-stale-issues/SKILL.md) | Audit open issues against PRs and code to find stale, resolved, duplicate, and overlapping work |
+| [follow-the-pr](follow-the-pr/SKILL.md) | Follow a PR after pushing by polling for new feedback, CI changes, and merge readiness |
 | [formal-coverage-audit](formal-coverage-audit/SKILL.md) | Audit formal and property verification coverage and produce a prioritized proof plan |
 | [go-perf](go-perf/SKILL.md) | Go performance optimization — profile, benchmark, isolate, and format results |
 | [kani](kani/SKILL.md) | Write and audit Kani proof harnesses — exhaustive verification, function contracts, solver selection |
