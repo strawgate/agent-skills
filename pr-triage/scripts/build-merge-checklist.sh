@@ -124,10 +124,10 @@ if [[ "${#blockers[@]}" -gt 0 ]]; then
   merge_ready="false"
 fi
 
-failing_checks_json="$(json_array_from_lines "${failing_checks[@]}")"
-pending_checks_json="$(json_array_from_lines "${pending_checks[@]}")"
-focus_files_json="$(json_array_from_lines "${focus_files[@]}")"
-blockers_json="$(json_array_from_lines "${blockers[@]}")"
+failing_checks_json="$(json_array_from_lines "${failing_checks[@]+"${failing_checks[@]}"}")"
+pending_checks_json="$(json_array_from_lines "${pending_checks[@]+"${pending_checks[@]}"}")"
+focus_files_json="$(json_array_from_lines "${focus_files[@]+"${focus_files[@]}"}")"
+blockers_json="$(json_array_from_lines "${blockers[@]+"${blockers[@]}"}")"
 
 jq -n \
   --arg pr_state "$pr_state" \
