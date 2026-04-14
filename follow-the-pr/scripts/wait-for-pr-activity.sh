@@ -272,7 +272,7 @@ compare_snapshots() {
     fi
   fi
 
-  printf '%s\n' "${reasons[@]}" | jq -R . | jq -s .
+  printf '%s\n' "${reasons[@]+"${reasons[@]}"}" | jq -R . | jq -s .
 }
 
 initial_activation_reasons() {
@@ -296,7 +296,7 @@ initial_activation_reasons() {
     fi
   fi
 
-  printf '%s\n' "${reasons[@]}" | jq -R . | jq -s .
+  printf '%s\n' "${reasons[@]+"${reasons[@]}"}" | jq -R . | jq -s .
 }
 
 require_cmd gh
