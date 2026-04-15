@@ -46,14 +46,14 @@ Instructions:
 - Before you resume work after delays, review feedback, or a stale branch window, fetch or otherwise refresh against the latest ${DEFAULT_BRANCH} so you are not coding against an old base.
 - Treat your visible world as only: the default-branch repository on GitHub, the GitHub issue body, and this prompt text.
 - You cannot see local worktrees, unpushed commits, unstaged files, branch-only memos, or chat context outside this prompt and the GitHub issue. Do not assume hidden local context exists.
-- If the issue depends on context that is not clearly present on default branch, ask a focused question instead of guessing.
+- If the issue depends on context that is not clearly present on default branch, investigate the codebase thoroughly and make your best judgment call — do not ask clarifying questions. Prefer a conservative, obviously-correct implementation over a perfect one that requires more context.
 - Read AGENTS.md first when present, then read the issue carefully, then consult the most relevant repo docs before changing code:
   - README.md
   - DEVELOPING.md or CONTRIBUTING.md
   - architecture docs
   - verification docs
   - adapter or protocol contracts when the issue touches runtime or I/O semantics
-- Treat the issue body as the primary task definition. If the issue appears stale, contradictory, or under-specified relative to current main, investigate carefully and ask a focused question in the Jules session instead of guessing.
+- Treat the issue body as the primary task definition. If the issue appears stale, contradictory, or under-specified relative to current main, investigate carefully and make your best judgment on the most conservative correct fix — do not stop to ask questions.
 - Keep the PR tightly scoped to this issue. Do not opportunistically bundle unrelated cleanup.
 - Minimize unrelated file churn. If you touch extra files outside the obvious issue footprint, either remove those changes or be prepared to justify exactly why they are required.
 - Do not commit one-off helper scripts, scratch files, or mechanical rewrite utilities unless the issue explicitly calls for shipping them in the repository.

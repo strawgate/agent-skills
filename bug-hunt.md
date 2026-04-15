@@ -18,40 +18,63 @@ You are doing a competitive bug hunt on a Rust codebase. Your goal is to find **
 ## Process
 
 ### Phase 1: Reconnaissance (5 min)
-1. `git fetch origin && git log --oneline origin/main -20` — understand recent changes
-2. `gh issue list --state open --label bug --limit 30` — know what's already filed
-3. `gh pr list --state merged --limit 10` — see what was recently fixed (avoid re-finding)
-4. Identify high-value hunting areas: output sinks, type dispatch, config validation gaps, new code
+```bash
+git fetch origin && git log --oneline origin/main -20
+gh issue list --state open --label bug --limit 30 --json number,title
+gh pr list --state merged --limit 10 --json number,title,mergedAt
+```
+Identify high-value hunting areas: output sinks, type dispatch, config validation gaps, new code.
 
 ### Phase 2: Hunt (10 min per bug, parallel agents)
-Launch 2-3 Explore agents targeting different areas:
+Launch 2-3 Explore agents targeting different non-overlapping areas. While agents run, deep-dive manually into areas they aren't covering.
 
-**Bug patterns to hunt for:**
-- Type dispatch gaps: `match DataType` with `_ =>` catch-all that drops data or panics
-- Utf8 vs Utf8View: UDFs/sinks that only accept Utf8 but scanner produces Utf8View
-- Null handling: `.value(row)` without `.is_null(row)` check
-- Timestamp column name mismatches: code checking only some canonical variants
-- Config validation gaps: accepted by validation, panics at runtime
-- Silent data loss: catch-all arms that return empty string or default value
-- Integer truncation: `as u64` / `as i64` on user data without bounds check
+**Proven high-yield bug patterns (from batch 1):**
 
-**While agents run, deep-dive manually** into areas agents aren't covering.
+1. **Utf8 vs Utf8View mismatch**: Scanner produces Utf8View but UDFs/sinks only accept Utf8. Check `TypeSignature::Exact` in all UDFs — if it only lists `DataType::Utf8`, the UDF is broken for scanner-produced columns. Also check `array.as_string::<i32>()` calls (panic on Utf8View).
+
+2. **`str_value()` panic on non-string types**: Any code calling `str_value(col, row)` where `col` might not be Utf8/Utf8View/LargeUtf8 will hit `unreachable!()`. Check console format, label extraction, any catch-all `_ =>` that delegates to `str_value`.
+
+3. **Timestamp column name mismatches**: Code checking only `_timestamp`/`@timestamp` but not the full canonical list (`timestamp`, `time`, `ts`). Check `find_col`, `position()`, `matches_any()` usage in all sinks.
+
+4. **`DataType::Timestamp` not handled in type dispatch**: Sinks that handle `Int64`/`UInt64`/`Utf8` timestamps but fall through to a default for `DataType::Timestamp(unit, _)`. The OTLP sink handles it correctly — others may not.
+
+5. **Silent compression no-op**: Compression enum match arms that treat Gzip same as None. Config validation may accept the config but the sink ignores it.
+
+6. **Star schema / OTAP column gaps**: `_scope_*` prefix columns not handled, bytes columns not extracted in roundtrip, attribute type dispatch `_ => {}` silently dropping data.
+
+7. **Config validation vs runtime gap**: Config accepts a value but runtime panics on it. Check for `.expect("validated at config time")` — these should be `.map_err()`.
+
+**Lower-yield patterns (from batch 1 experience):**
+- Background agent false positives on code that was already fixed (they read partial functions). Always verify findings manually.
+- CRI truncation at max_message_size is by-design, not a bug.
+- `unreachable!()` in test-only code is not a production bug.
+- Edge cases requiring `i64::MAX` inputs are not real-user scenarios.
 
 ### Phase 3: Dedup & File (2 min per bug)
-1. Check `gh issue list` for each finding — skip if already filed
-2. File with: root cause (file:line), trigger input, user-visible effect, fix approach
-3. Use `--label bug` on all issues
+1. `gh issue list --state open --label bug` — check each finding
+2. `gh issue list --state closed --limit 50` — check recently closed
+3. File with: root cause (file:line), trigger input, user-visible effect, fix approach
+4. Use `--label bug`
 
 ### Phase 4: Fix & Test (5-10 min per fix)
 1. Create a worktree: `EnterWorktree`
-2. For each bug: write the regression test FIRST, verify it fails, implement fix, verify it passes
+2. For each bug: implement the fix, write the regression test
 3. `cargo fmt && cargo clippy -- -D warnings` before committing
-4. Single commit per batch with all fixes
+4. Delegate regression test writing to a background agent while you keep hunting
+5. Single commit per batch with all fixes, separate commit for tests
 
 ### Phase 5: PR
-1. Push and create PR with summary table of all 10 bugs
-2. Reference all filed issues
-3. Include test plan with per-crate test commands
+```bash
+gh pr create --title "fix: N correctness bugs — ..." --body "$(cat <<'EOF'
+## Summary
+| # | Issue | Severity | Description |
+...
+## Test plan
+- [ ] cargo test -p ... — N tests pass
+- [ ] cargo clippy -- -D warnings — clean
+EOF
+)"
+```
 
 ## Quality Bar
 
@@ -67,3 +90,4 @@ Do NOT file:
 - Style/naming issues
 - Missing features disguised as bugs
 - Anything already tracked in open issues
+- Things that are "by design" (e.g., CRI truncation with warning log)
