@@ -160,18 +160,19 @@ def main() -> int:
         elapsed = time.time() - start
         print(
             f"[wait-for-fanin] attempt={attempt} mode={args.mode} "
-            f"ready={ready}/{total} elapsed={elapsed:.1f}s"
+            f"ready={ready}/{total} elapsed={elapsed:.1f}s",
+            flush=True,
         )
         for line in lines:
-            print(line)
-        print(f"artifact index: {index_path}")
+            print(line, flush=True)
+        print(f"artifact index: {index_path}", flush=True)
 
         if total > 0 and ready == total:
-            print("[wait-for-fanin] ready for fan-in")
+            print("[wait-for-fanin] ready for fan-in", flush=True)
             return 0
 
         if elapsed >= args.timeout_sec:
-            print("[wait-for-fanin] timed out before the wave became ready")
+            print("[wait-for-fanin] timed out before the wave became ready", flush=True)
             return 2
 
         time.sleep(args.interval_sec)

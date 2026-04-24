@@ -70,6 +70,14 @@ Readiness modes:
 The waiter re-runs artifact collection on each poll, refreshes
 `artifact-index.json`, and exits once the selected readiness threshold is met.
 
+Useful exit codes:
+
+- `0`: the wave is ready for fan-in
+- `2`: timed out before readiness
+
+That makes it a good gate for automations or follow-up scripts that should only
+wake you once a wave is actually synthesizable.
+
 ### 2. Inspect convergence
 
 For each workstream, answer:
