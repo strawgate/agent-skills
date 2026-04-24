@@ -98,6 +98,21 @@ def write_extracted_file(task_dir: pathlib.Path, rel_path: str, content: str, so
     return out_path
 
 
+def is_partially_usable_for_fanin(final_diff_available: bool, attempts_saved: list[int]) -> bool:
+    """Return whether a task already has enough artifact material for a partial fan-in.
+
+    Partial fan-ins are valid once a task has either:
+
+    - a task-level final diff, or
+    - at least one successful attempt diff
+
+    This matches the practical workflow used in the skill docs, where a wave can be
+    synthesized before every task has converged on a final selected attempt.
+    """
+
+    return final_diff_available or bool(attempts_saved)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Download status and diff artifacts for Codex Cloud tasks listed in a manifest.")
     parser.add_argument("manifest", nargs="?", help="Path to fanout-manifest.json produced by assign-codex-fanout.")
@@ -214,6 +229,8 @@ def main() -> int:
                             }
                         )
 
+        final_diff_available = final_diff.returncode == 0
+        usable_for_fanin_partial = is_partially_usable_for_fanin(final_diff_available, attempts_saved)
         index["tasks"].append(
             {
                 "name": name,
@@ -223,10 +240,12 @@ def main() -> int:
                 "task_dir": str(task_dir),
                 "status_file": str(task_dir / "status.txt"),
                 "final_diff_file": str(task_dir / "final.diff.txt"),
-                "final_diff_available": final_diff.returncode == 0,
+                "final_diff_available": final_diff_available,
                 "attempts_saved": attempts_saved,
                 "attempt_extracts": attempt_extracts,
                 "extracted_new_file": str(extracted_path) if extracted_path else None,
+                "usable_for_fanin_partial": usable_for_fanin_partial,
+                "usable_for_fanin_full": final_diff_available,
             }
         )
 

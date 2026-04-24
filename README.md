@@ -26,6 +26,7 @@ Reusable AI agent skills for Claude Code, Codex, and VS Code Copilot.
 | [refresh-yourself](refresh-yourself/SKILL.md) | Refresh project context after time away using a generated snapshot of PRs/issues/commits/files |
 | [research](research/SKILL.md) | Deep research into a library, pattern, technique, or codebase question |
 | [tla-audit](tla-audit/SKILL.md) | Audit TLA+/TLC specifications — property strength, liveness, abstraction gaps, state space coverage |
+| [web-session](web-session/SKILL.md) | Start Claude Code web sessions for GitHub issues via `claude --remote` |
 
 ## Usage
 
