@@ -1,7 +1,7 @@
 ---
 name: bug-hunt
-description: Systematic bug hunting for logfwd — builds the binary, crafts adversarial configs and CLI sequences, runs them, files high-severity bugs, and periodically PRs regression tests with fixes. Use when the user says "bug hunt", "find bugs", "hunt bugs", or "bug-hunt".
-argument-hint: "[optional: focus area e.g. 'config validation', 'OTLP output', 'file tailing', 'SQL transforms']"
+description: Generic, evidence-driven bug hunting for any repository. Coordinate multiple agents through a shared results directory, avoid duplicate work, reproduce one real user-impacting bug with a new minimal artifact, and write structured findings that can become issues or fixes. Use when the user says "bug hunt", "find bugs", "hunt bugs", or "bug-hunt".
+argument-hint: "[optional: target area, recent change, subsystem, workflow, or bug class]"
 allowed-tools: Read, Grep, Glob, Bash, Agent, WebSearch, WebFetch, TaskCreate, TaskUpdate, Edit, Write
 context: fork
 effort: high
@@ -9,264 +9,267 @@ effort: high
 
 # Bug Hunt
 
-Find real, high-severity bugs in logfwd that affect users in production. File them as GitHub issues and periodically submit PRs with regression tests and fixes.
+Default mode: find one real, reproducible, user-impacting bug. Most normal runs should end with one strong finding or `noop`, not a pile of weak suspicions.
 
-**Quality bar**: Every bug must be something a real user could hit. Panics, data loss, silent misconfiguration, incorrect output, hangs, resource leaks. NOT: cosmetic issues, doc typos, style nits, theoretical edge cases that require malicious input. We are being watched — silly bugs get ignored, serious bugs get promoted.
+If the user explicitly asks for a broad sweep, fan-out, backlog, or quota such as "find 30 bugs", switch to sweep mode:
+- keep the same evidence bar per bug
+- write many separate candidate markdown files
+- do not stop after the first strong hit
+- let the verifier or orchestrator rank and promote later
 
-**Goal**: Find 50 bugs, file 5 PRs (each fixing ~10 bugs with regression tests).
+This skill is intentionally generic. It does not assume a language, framework, build tool, test runner, or hosting platform. Repo-specific rules belong in repo-local instructions layered on top of this skill.
 
-## Phase 0: Setup
+## Quality Bar
 
-1. Detect repo: `gh repo view --json nameWithOwner -q .nameWithOwner`
-2. Build a release binary: `just build` (or `cargo build --release -p logfwd`)
-3. Note the binary path: `target/release/logfwd`
-4. Create a scratch directory for test configs and data: `mkdir -p /tmp/logfwd-bug-hunt`
-5. Generate test data:
-   ```bash
-   ./target/release/logfwd generate-json 10000 /tmp/logfwd-bug-hunt/logs.json
-   ```
-6. Create additional test data files:
-   - A valid CRI log file (Kubernetes format)
-   - A malformed JSON file (truncated lines, invalid UTF-8, mixed encodings)
-   - An empty file
-   - A file with only newlines
-   - A very long single line (>1MB)
-   - A file with Windows line endings (\r\n)
-   - A file that grows while being read (use a background writer)
+A valid bug is something a real user or operator could plausibly hit:
+- wrong output
+- silent data loss or corruption
+- accepted invalid configuration or input that should be rejected
+- crash, hang, deadlock, livelock, or stuck retry loop
+- resource leak, unbounded growth, or broken recovery path
+- incorrect permission, auth, or state-transition behavior
 
-## Phase 1: Fetch Open Issues (do this FIRST and every 10 bugs)
+Not valid by default:
+- style nits
+- vague "this looks suspicious"
+- a failure from an existing test suite you did not author for this run
+- repo-specific conventions you have not verified against the surrounding design
+- extremely contrived inputs unless the user explicitly wants adversarial/security fuzzing
 
-```bash
-gh issue list --repo OWNER/REPO --state open --limit 200 --json number,title,labels,body
+## Default Output Layout
+
+Create a run directory before hunting. Prefer a repo-local temp path so multiple agents can coordinate through files:
+
+```text
+tmp/bug-hunt/YYYY-MM-DD-brief-name/
+  claims/                  # optional; mainly for parallel runs
+  candidates/
+    <slug>.md
+  verified/
+    critical/
+      <slug>.md
+    high/
+      <slug>.md
+    medium/
+      <slug>.md
+    low/
+      <slug>.md
 ```
 
-Build a dedup index: title keywords + labels. Before filing any bug, search this list. Multiple agents are bug-hunting simultaneously — duplicates waste everyone's time.
+If the repo cannot safely hold scratch data, use `/tmp/<repo>-bug-hunt-...`.
 
-Also check recently closed issues to avoid re-filing known-fixed bugs:
-```bash
-gh issue list --repo OWNER/REPO --state closed --limit 100 --json number,title,labels
-```
+The markdown file is the primary artifact.
+- Put the reproduction, evidence, command transcript, and analysis directly in the markdown when practical.
+- If you need an extra file, place it next to the markdown using the same slug, for example `candidates/<slug>.txt` or `verified/high/<slug>.json`.
+- Do not create a deep artifact tree unless the user explicitly wants it.
 
-## Phase 2: Systematic Bug Hunting
+Treat these states differently:
+- `claims/` means "someone is actively looking here"
+- `candidates/` means "possible bug, not yet verified strongly enough"
+- `verified/` means "reproduced, deduped, and assigned a final severity by the verifier or orchestrator"
 
-Work through each category below. For each test:
-1. Write the config YAML to a temp file
-2. Run `./target/release/logfwd validate --config <file>` — check if validation catches the issue or silently accepts bad config
-3. Run `./target/release/logfwd run --config <file>` with a 30-second timeout — watch for panics, hangs, incorrect output, memory issues
-4. Run `./target/release/logfwd effective-config --config <file>` — check for inconsistencies
-5. Capture stdout, stderr, and exit code
+## Multi-Agent Coordination
 
-### Category A: Config Edge Cases (validation gaps)
+When multiple agents are bug hunting:
 
-Test configs that SHOULD be rejected but might slip through, and configs that SHOULD work but might fail:
+1. Inspect the run directory first.
+   Read existing `claims/`, `candidates/`, and `verified/` files before starting.
+2. Claim a narrow slice before digging in.
+   Good slices: a subsystem, recent commit range, API surface, config path, failure mode, or user workflow.
+3. Record your claim in a dedicated file.
+   Include:
+   - owner
+   - focus area
+   - commits/files being inspected
+   - status: `active`, `abandoned`, `confirmed`, or `noop`
+4. Search for duplicates before escalating.
+   Check:
+   - existing result files in the run directory
+   - open issues
+   - recently closed issues / merged PRs for the same symptom
+5. One bug per markdown file.
+   Do not mix several weak ideas into one report.
+6. Prefer "pick three, keep one".
+   If you are orchestrating multiple agents, give each a distinct angle and only escalate the strongest confirmed finding.
+7. Let the parent agent consolidate.
+   Sub-agents should usually write or report one best finding plus any downgraded candidates. The parent agent should deduplicate and decide what gets promoted.
 
-1. **Type coercion traps**: YAML `true`/`false`/`null`/numbers where strings expected
-   ```yaml
-   input:
-     type: file
-     path: true          # boolean where string expected
-     format: json
-   output:
-     type: stdout
-   ```
+In sweep mode, replace "pick three, keep one" with:
+- cover the assigned slice broadly
+- write every distinct candidate that clears the minimum evidence bar
+- stop only when the slice is exhausted, time-boxed, or the quota is met
+- leave ranking and promotion to the parent agent
 
-2. **Integer overflow / boundary**: batch_target_bytes, workers, timeouts at MAX, 0, negative, float
-   ```yaml
-   input:
-     type: file
-     path: /tmp/logfwd-bug-hunt/logs.json
-     format: json
-   output:
-     type: otlp
-     endpoint: https://localhost:4318
-   pipelines:  # Try both simple and advanced forms
-     test:
-       inputs: [...]
-       outputs: [...]
-       workers: 999999999999
-       batch_target_bytes: -1
-       batch_timeout_ms: 0.5
-   ```
+If agents cannot safely share a filesystem in your environment, emulate the same flow by having the parent agent own the directory and mirror sub-agent claims/results into it.
 
-3. **Path traversal / special paths**: symlinks, /dev/null, /proc/self/fd/0, named pipes, device files
-4. **Unicode / encoding**: config file in UTF-16, emoji in pipeline names, null bytes in paths
-5. **Duplicate keys**: YAML allows duplicate keys — which one wins?
-6. **Anchor/alias abuse**: YAML anchors creating circular references or deeply nested structures
-7. **Very large config**: 1000 pipelines, 1000 inputs per pipeline
-8. **Empty/whitespace variants**: empty string vs missing vs null vs whitespace-only for every field
-9. **Mixed simple/advanced with subtle violations**: top-level `input` with `pipelines` that has only `outputs`
-10. **Environment variable edge cases**: `${UNSET}`, `${=bad}`, `${}`, `${PATH}` (huge value), nested `${${VAR}}`
+## Standard Hunt Loop
 
-### Category B: Runtime Behavior
+### 1. Orient
 
-11. **File disappears mid-read**: tail a file, then delete it
-12. **File replaced mid-read**: tail a file, then replace it with a different file (same name)
-13. **Glob pattern matches thousands of files**: does it OOM or handle gracefully?
-14. **Symlink loops in glob paths**: `/tmp/a -> /tmp/b -> /tmp/a`
-15. **Permission denied on log file**: readable initially, then chmod 000
-16. **Disk full during checkpoint write**: fill /tmp, see what happens to checkpointing
-17. **OTLP endpoint unreachable**: what's the retry behavior? Does it block? Backpressure?
-18. **OTLP endpoint returns 500/429/503**: does it retry? Exponential backoff?
-19. **Elasticsearch endpoint returns malformed response**: garbled JSON
-20. **Very fast input**: generator at max speed — does memory grow unboundedly?
-21. **Signal handling**: SIGTERM during flush, SIGHUP, SIGUSR1/2, double SIGTERM
-22. **Multiple instances with same checkpoint dir**: data corruption? Lock contention?
+- Identify the repository, target branch, and current branch.
+- Prefer hunting on the latest default branch unless the user explicitly asks for another target.
+- If your current checkout is stale, dirty, or tied to unrelated branch work, use an isolated worktree or equivalent clean checkout for the hunt.
+- Read the local contribution or architecture guidance relevant to the target area.
+- Review recent user-facing changes.
+  A good default is the last 2-6 weeks of commits, PRs, or release notes.
+- Build a short list of candidate bug surfaces from recent change hotspots, high-complexity areas, and behavior with real user impact.
+- Build a lightweight issue cache up front.
+  Prefer one initial snapshot of:
+  - open issues relevant to the assigned slice
+  - recent closed issues / merged PRs relevant to the assigned slice
+  Save or summarize that cache in the run directory if multiple agents are coordinating.
+  Do not hit the issue tracker from scratch for every single candidate when a cached slice-local list would do.
 
-### Category C: Data Handling
+### 2. Dedup
 
-23. **JSON with deeply nested objects**: 100+ levels
-24. **JSON with very large arrays**: 10K elements in a single field
-25. **JSON with duplicate keys**: `{"level": "info", "level": "error"}`
-26. **JSON with non-string message field**: `{"message": 42}`, `{"message": null}`, `{"message": [1,2,3]}`
-27. **CRI log with corrupted timestamp**: invalid date, epoch 0, far future
-28. **CRI log with extremely long partial lines**: 100MB partial that never completes
-29. **Log line exactly at buffer boundary**: lines that are exactly 4096, 8192, 65536 bytes
-30. **Binary data in log file**: what happens with null bytes, control characters?
-31. **Mixed formats in one file**: some lines JSON, some CRI, some raw — with format: auto
+Before investing deeply in a candidate:
+- check the cached open issues for the symptom
+- check the cached closed issues / merged PRs for the same behavior
+- check the run directory for overlapping claims or findings
 
-### Category D: SQL Transform
+If the behavior is already tracked or already fixed on the target branch, do not report it as a new bug by default.
 
-32. **SQL injection-style queries**: `DROP TABLE`, `CREATE TABLE`, subqueries
-33. **SQL referencing non-existent columns**: `SELECT nonexistent FROM logs`
-34. **SQL with aggregations**: `SELECT COUNT(*) FROM logs GROUP BY level` — does this work or silently drop?
-35. **SQL with JOINs**: `SELECT * FROM logs a JOIN logs b ON a.level = b.level`
-36. **SQL producing empty result set**: `SELECT * FROM logs WHERE 1=0` — does the pipeline stall?
-37. **Very complex SQL**: deeply nested CASE/WHEN, many UDFs, regex on every field
-38. **SQL with UDF edge cases**: `regexp_extract(NULL, '.*')`, `grok(message, '%{INVALID_PATTERN}')`, `int('not_a_number')`
-39. **SQL that changes column types**: `SELECT CAST(level AS INTEGER) FROM logs`
-40. **SQL with window functions**: `SELECT *, ROW_NUMBER() OVER (ORDER BY timestamp) FROM logs`
+Default policy:
+- exact match or same root cause as an existing issue/PR: skip it
+- likely same family but not clearly distinct: downgrade confidence or leave as a note
+- only keep it when you can explain what is materially new
 
-### Category E: Output Sinks
+Examples of materially new evidence:
+- current-main confirmation on an old issue
+- a much smaller or more deterministic reproduction
+- a narrowed root cause
+- a stronger severity/impact demonstration
+- proof that the previous fix did not fully address the problem
 
-41. **Stdout with pipe closed**: `logfwd run ... | head -1` — does EPIPE cause panic?
-42. **File output to read-only path**: `/etc/logfwd-output.json`
-43. **File output path is a directory**: output path is `/tmp/`
-44. **Elasticsearch with invalid index name**: special characters, very long name
-45. **Loki with very long label values**: 10KB label value
-46. **OTLP with enormous batch**: batch_target_bytes set to 1GB
-47. **Multiple outputs, one fails**: does the healthy output continue?
-48. **TCP/UDP output to endpoint that resets**: connection reset mid-write
-49. **Null output with transform**: does it still execute the SQL? (performance trap)
+### 3. Form a Concrete Hypothesis
 
-### Category F: CLI Sequences
+Good hypothesis:
+- names the behavior
+- names the trigger
+- predicts the impact
+- suggests a minimal reproduction path
 
-50. **validate then run same config**: does validate leave state that affects run?
-51. **dry-run on config that references missing enrichment files**: crash or clean error?
-52. **effective-config with env vars that contain YAML metacharacters**: `ENDPOINT="http://host:port # comment"`
-53. **wizard on non-interactive terminal**: pipe stdin, does it hang or error?
-54. **completions for all shells**: do they all generate valid output?
-55. **blackhole receiver**: start it, send garbage data, does it crash?
-56. **generate-json with 0 lines**: `logfwd generate-json 0 out.json`
-57. **generate-json to /dev/null**: does it work?
-58. **generate-json to stdout** (no file argument): is the error good?
-59. **run with --config pointing to directory**: is the error good?
-60. **run with --config pointing to binary file**: is the error good?
+Example shape:
+- "When X receives Y after Z, it incorrectly does A instead of B, causing C."
 
-### Category G: Concurrency & Resource
+### 4. Reproduce It Yourself
 
-61. **Rapid config file changes with inotify**: touch config repeatedly during run
-62. **Many concurrent connections to diagnostics endpoint**: 1000 parallel curl requests
-63. **Diagnostics endpoint with malformed HTTP**: raw TCP garbage
-64. **Memory under pressure**: ulimit -v, run with large input
-65. **File descriptor exhaustion**: ulimit -n 16, run with glob matching many files
-66. **CPU starvation**: nice -n 19, run with complex SQL on fast input
+This is mandatory.
 
-## Phase 3: Filing Bugs
+Write a new minimal artifact for this run:
+- a focused script
+- a tiny fixture
+- a minimal test
+- a single API/CLI invocation sequence
+- a small workflow or config snippet
 
-For each confirmed bug, file a GitHub issue:
+The reproduction must be authored for this hunt, not borrowed from an existing failing suite.
 
-```bash
-gh issue create --repo OWNER/REPO \
-  --title "type: concise description" \
-  --label "bug" \
-  --body "$(cat <<'EOF'
+Capture:
+- exact commands
+- exact inputs
+- stdout/stderr
+- exit code or observed behavior
+- any required environment assumptions
+
+Put the reproduction directly in the markdown when possible. If a sidecar file is needed, place it next to the markdown with the same slug.
+
+If you cannot get to a direct reproduction, do not write a verified finding. Write a `candidates/<short-name>.md` note instead with the missing step or uncertainty.
+
+### 5. Confirm Impact
+
+State:
+- who is affected
+- what breaks
+- whether the bug is deterministic
+- whether data is wrong, lost, duplicated, or stuck
+- whether the behavior is a regression, and if so, from what change
+
+### 6. Write the Candidate or Verified Finding
+
+Hunters should usually start by writing `candidates/<short-name>.md`.
+
+In sweep mode:
+- write one markdown file per bug candidate
+- keep going until you exhaust the slice or hit the requested quota
+- avoid bundling multiple bugs into one report just to save time
+- skip already-known issues unless you have materially new evidence
+
+The verifier or orchestrator should promote strong findings into one of:
+- `verified/critical/<short-name>.md`
+- `verified/high/<short-name>.md`
+- `verified/medium/<short-name>.md`
+- `verified/low/<short-name>.md`
+
+Use this structure:
+
+```md
+# <short bug title>
+
 ## Summary
-One sentence: what happens, when, and why it matters to users.
+One paragraph: trigger, behavior, impact.
+
+## Slice
+What area or claim this came from.
+
+## Dedup Check
+- Open issues searched:
+- Closed issues / merged PRs searched:
+- Existing hunt files checked:
+- Search keywords used:
 
 ## Reproduction
-\`\`\`yaml
-# Exact config that triggers the bug
-\`\`\`
+1. ...
+2. ...
 
-\`\`\`bash
-# Exact commands to reproduce
-\`\`\`
-
-## Expected Behavior
-What should happen.
-
-## Actual Behavior
-What actually happens. Include the exact error/panic/output.
-
-## Impact
-Who hits this and how badly. Is data lost? Does the process crash? Does it silently produce wrong output?
-
-## Environment
-- logfwd version: (from --version)
-- OS: (uname -a)
-- Rust: (rustc --version)
-EOF
-)"
-```
-
-**Labels**: Always `bug`. Add severity:
-- `P0` — crash, data loss, silent corruption
-- `P1` — incorrect behavior, resource leak, hang
-- `P2` — poor error message, confusing behavior
-
-**Title format**: `bug: [component] description` — e.g., `bug: [config] YAML boolean coercion silently accepts path: true`
-
-## Phase 4: Fix & PR (every 10 bugs)
-
-After every 10 bugs filed, create a PR that:
-
-1. **Branch**: `fix/bug-hunt-batch-N` from latest `origin/main`
-2. **For each bug**:
-   - Add a regression test that reproduces the bug (fails without fix, passes with fix)
-   - Implement the minimal fix
-   - Reference the issue number in the test name and commit
-3. **Run**: `just ci` (must pass)
-4. **PR body**: list all bugs fixed with issue links, describe the pattern of bugs found
-5. **PR title**: `fix: bug hunt batch N — [brief theme]`
-
-Structure commits as one-per-bug for easy review:
-```
-fix(config): reject boolean values in path fields (#NNN)
-fix(runtime): handle file deletion during tail (#NNN)
+## Expected
 ...
+
+## Actual
+...
+
+## Evidence
+- Inline transcript or sidecar file path(s):
+- Key command output:
+- Relevant code references:
+
+## Severity
+Proposed user impact. Final severity is assigned by the verifier or orchestrator.
+
+## Next Step
+`issue`, `fix`, `test-only`, or `noop`
 ```
 
-## Tracking
+### 7. Promote, Downgrade, or Noop
 
-Maintain a running tally using tasks:
-- Bugs found: N/50
-- Bugs filed: N/50
-- PRs submitted: N/5
-- Current focus area: [category]
+Promote to `verified/` only if the bug clears the quality bar, was reproduced directly, and has been deduped.
 
-After each bug, update the tally. After each PR, update the tally.
+Prefer this split of responsibilities:
+- hunter: writes or updates `candidates/<slug>.md`
+- verifier/orchestrator: confirms, assigns severity, and promotes to `verified/<severity>/<slug>.md`
 
-## Priority Order
+Choose `noop` if:
+- you could not reproduce it
+- the impact is weak or speculative
+- it is already tracked
+- it is already fixed
+- it only surfaced through unrelated existing test failures
 
-Start with categories most likely to yield high-severity bugs:
-1. **C (Data Handling)** — silent data corruption is worst
-2. **B (Runtime)** — crashes and hangs are next worst
-3. **E (Output Sinks)** — wrong data shipped to users' backends
-4. **D (SQL Transform)** — unexpected query behavior
-5. **A (Config Edge Cases)** — bad configs accepted silently
-6. **F (CLI Sequences)** — UX issues
-7. **G (Concurrency)** — harder to reproduce but high impact
+## What To Look For
 
-## Focus Area
+Good generic hunting angles:
+- validation gaps between "accepted" and "supported"
+- state-machine transitions after partial failure or restart
+- behavior at boundaries: empty, huge, missing, duplicate, reordered, interrupted, partially written
+- disagreement between docs, schema, builder, runtime, and outputs
+- retry, shutdown, checkpoint, recovery, or flush paths that drop or duplicate work
+- coercions or sanitization that silently turn bad input into plausible-looking output
 
-If `$ARGUMENTS` specifies a focus area, prioritize that category but still check others. If no focus area, work through the priority order above.
+## Escalation Rule
 
-## Rules
+If the user asks you to file issues or prepare fixes:
+- verify first
+- dedup second
+- only then escalate
 
-- **Never file a duplicate**. Check open AND recent closed issues before every filing.
-- **Never file cosmetic bugs**. If the maintainers would say "who cares?", don't file it.
-- **Always include reproduction steps**. If you can't reproduce it reliably, note that.
-- **Prefer bugs that affect default/common configurations**. An edge case in a rarely-used feature is lower priority than a bug in the happy path.
-- **Test on the actual release binary**, not debug builds (behavior differs — optimizations, overflow checks, etc.)
-- **Capture exact output**. Don't paraphrase error messages.
-- **Check if a bug is already fixed on main** before filing. Pull latest, rebuild, retest.
+Do not turn a candidate into a GitHub issue or code change until it has crossed the evidence bar.

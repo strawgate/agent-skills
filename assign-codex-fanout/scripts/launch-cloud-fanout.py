@@ -54,6 +54,25 @@ def infer_repo_slug(cwd: pathlib.Path) -> str | None:
     return None
 
 
+def split_repo_slug(slug: str | None) -> tuple[str | None, str | None]:
+    if not slug or "/" not in slug:
+        return None, None
+    owner, name = slug.split("/", 1)
+    return owner, name
+
+
+def env_matches_repo(repo_slug: str | None, env_label: str | None) -> bool:
+    if not repo_slug or not env_label:
+        return True
+    repo_owner, repo_name = split_repo_slug(repo_slug)
+    env_owner, env_name = split_repo_slug(env_label)
+    if not repo_owner or not repo_name or not env_owner or not env_name:
+        return repo_slug == env_label
+    if repo_owner != env_owner:
+        return False
+    return env_name == repo_name or env_name.startswith(f"{repo_name}-")
+
+
 def collect_env_candidates(value: Any) -> list[dict[str, str]]:
     candidates: list[dict[str, str]] = []
 
@@ -173,6 +192,11 @@ def main() -> int:
     )
     parser.add_argument("--env", help="Codex Cloud environment ID.")
     parser.add_argument("--env-label", help="Preferred environment label when auto-detecting.")
+    parser.add_argument(
+        "--allow-env-mismatch",
+        action="store_true",
+        help="Allow launching even when inferred repo slug and selected environment label do not match.",
+    )
     parser.add_argument("--branch", help="Git branch to run in cloud.")
     parser.add_argument(
         "--remote-branch",
@@ -192,7 +216,15 @@ def main() -> int:
     prompt_dir = pathlib.Path(args.prompt_dir).expanduser().resolve()
     manifest_path = pathlib.Path(args.manifest).expanduser().resolve() if args.manifest else (prompt_dir / "fanout-manifest.json")
 
+    repo_slug = infer_repo_slug(cwd)
     env_id, env_label = detect_env(args.env, args.env_label, cwd)
+    if not args.allow_env_mismatch and not env_matches_repo(repo_slug, env_label):
+        raise SystemExit(
+            "Refusing to launch cloud fanout with mismatched repo/environment.\n"
+            f"Inferred repo slug: {repo_slug or 'unknown'}\n"
+            f"Selected environment: {env_label or env_id}\n"
+            "Pass --env-label for the correct repo or use --allow-env-mismatch if this is intentional."
+        )
     branch = detect_branch(cwd, args.branch)
     remote_branch = args.remote_branch or f"origin/{branch}"
     local_head = rev_parse(cwd, "HEAD")
@@ -217,6 +249,7 @@ def main() -> int:
     manifest: dict[str, Any] = {
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "cwd": str(cwd),
+        "repo_slug": repo_slug,
         "prompt_dir": str(prompt_dir),
         "pattern": args.pattern,
         "branch": branch,

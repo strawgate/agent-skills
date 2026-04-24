@@ -26,6 +26,7 @@ Use this section when you need prescriptive cloud behavior.
 
 Write explicit items such as:
 
+- `You MUST verify repo identity near the start (repo slug, required paths, or both). If the workspace does not match the requested repo, stop and write only a repo-context-mismatch note instead of pivoting to a different project.`
 - `You MUST read A, B, and C before changing anything.`
 - `You MUST run X and Y benchmarks or explain exactly why you could not.`
 - `You MUST add or update one repo-local deliverable at <path>.`
@@ -58,6 +59,7 @@ If this is an implementation workstream, also edit the necessary code in the rep
 ## Constraints
 
 - ground everything in the actual repo
+- if the launched workspace does not match the intended repo, fail loudly instead of switching to the nearest available project
 - separate hot-path concerns from maintainability concerns
 - distinguish product semantics from substrate/library concerns
 - be explicit about what you would keep custom and what you would replace
