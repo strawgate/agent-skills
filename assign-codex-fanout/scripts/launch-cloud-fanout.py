@@ -11,10 +11,14 @@ import shlex
 import subprocess
 import sys
 from typing import Any
+import urllib.error
+import urllib.parse
+import urllib.request
 
 
 TASK_ID_RE = re.compile(r"\b(task_e_[a-z0-9]+)\b")
 TASK_URL_RE = re.compile(r"https://chatgpt\.com/codex/tasks/(task_e_[a-z0-9]+)")
+WHAM_BASE_URL = "https://chatgpt.com/backend-api/wham"
 
 
 def run(cmd: list[str], cwd: pathlib.Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -61,6 +65,20 @@ def split_repo_slug(slug: str | None) -> tuple[str | None, str | None]:
     return owner, name
 
 
+def env_repo_slugs(env: dict[str, Any]) -> list[str]:
+    repo_map = env.get("repo_map")
+    if not isinstance(repo_map, dict):
+        return []
+    slugs: list[str] = []
+    for repo in repo_map.values():
+        if not isinstance(repo, dict):
+            continue
+        slug = repo.get("repository_full_name")
+        if isinstance(slug, str):
+            slugs.append(slug)
+    return slugs
+
+
 def env_matches_repo(repo_slug: str | None, env_label: str | None) -> bool:
     if not repo_slug or not env_label:
         return True
@@ -71,6 +89,56 @@ def env_matches_repo(repo_slug: str | None, env_label: str | None) -> bool:
     if repo_owner != env_owner:
         return False
     return env_name == repo_name or env_name.startswith(f"{repo_name}-")
+
+
+def load_auth_access_token() -> str:
+    auth_path = pathlib.Path.home() / ".codex" / "auth.json"
+    if not auth_path.exists():
+        raise SystemExit("Could not find ~/.codex/auth.json; run `codex login` or pass --env explicitly.")
+    with auth_path.open() as fh:
+        auth = json.load(fh)
+    tokens = auth.get("tokens")
+    if not isinstance(tokens, dict):
+        raise SystemExit("Could not parse tokens from ~/.codex/auth.json; pass --env explicitly.")
+    access_token = tokens.get("access_token")
+    if not isinstance(access_token, str) or not access_token:
+        raise SystemExit("Could not find an access token in ~/.codex/auth.json; pass --env explicitly.")
+    return access_token
+
+
+def fetch_wham_json(path: str) -> Any:
+    token = load_auth_access_token()
+    req = urllib.request.Request(
+        f"{WHAM_BASE_URL}{path}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "User-Agent": "CodexFanoutLauncher/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.load(resp)
+    except urllib.error.HTTPError as exc:
+        body = exc.read(400).decode("utf-8", "replace")
+        raise SystemExit(f"Failed to query Codex Cloud environments: HTTP {exc.code} for {path}\n{body}") from exc
+    except urllib.error.URLError as exc:
+        raise SystemExit(f"Failed to query Codex Cloud environments: {exc}") from exc
+
+
+def fetch_api_env_candidates(repo_slug: str | None) -> list[dict[str, Any]]:
+    if repo_slug:
+        owner, name = split_repo_slug(repo_slug)
+        if owner and name:
+            quoted_owner = urllib.parse.quote(owner, safe="")
+            quoted_name = urllib.parse.quote(name, safe="")
+            data = fetch_wham_json(f"/environments/by-repo/github/{quoted_owner}/{quoted_name}")
+            if isinstance(data, list):
+                return [item for item in data if isinstance(item, dict)]
+    data = fetch_wham_json("/environments")
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    raise SystemExit("Unexpected environment list response from Codex Cloud.")
 
 
 def collect_env_candidates(value: Any) -> list[dict[str, str]]:
@@ -96,40 +164,58 @@ def collect_env_candidates(value: Any) -> list[dict[str, str]]:
     return list(dedup.values())
 
 
-def detect_env(explicit_env: str | None, explicit_label: str | None, cwd: pathlib.Path) -> tuple[str, str | None]:
+def format_env_choices(candidates: list[dict[str, Any]]) -> str:
+    lines = []
+    for candidate in candidates:
+        repos = ", ".join(env_repo_slugs(candidate)) or "unknown"
+        lines.append(f"- {candidate.get('id')}  {candidate.get('label')}  repos=[{repos}]")
+    return "\n".join(lines)
+
+
+def detect_env(
+    explicit_env: str | None,
+    explicit_label: str | None,
+    cwd: pathlib.Path,
+    repo_slug: str | None,
+) -> tuple[str, str | None, list[dict[str, Any]]]:
     if explicit_env:
-        return explicit_env, explicit_label
+        return explicit_env, explicit_label, []
 
-    state_path = pathlib.Path.home() / ".codex" / ".codex-global-state.json"
-    if not state_path.exists():
-        raise SystemExit("Could not find ~/.codex/.codex-global-state.json; pass --env explicitly.")
-
-    with state_path.open() as fh:
-        state = json.load(fh)
-
-    candidates = collect_env_candidates(state)
+    candidates = fetch_api_env_candidates(repo_slug)
     if not candidates:
-        raise SystemExit("No environment candidates found in ~/.codex/.codex-global-state.json; pass --env explicitly.")
+        state_path = pathlib.Path.home() / ".codex" / ".codex-global-state.json"
+        if state_path.exists():
+            with state_path.open() as fh:
+                state = json.load(fh)
+            cached = collect_env_candidates(state)
+            if len(cached) == 1:
+                return cached[0]["id"], cached[0]["label"], []
+        raise SystemExit("No environment candidates found via Codex Cloud API; pass --env explicitly.")
 
     if explicit_label:
-        exact = [c for c in candidates if c["label"] == explicit_label]
+        exact = [c for c in candidates if c.get("label") == explicit_label]
         if len(exact) == 1:
-            return exact[0]["id"], exact[0]["label"]
-        contains = [c for c in candidates if explicit_label in c["label"]]
+            return exact[0]["id"], exact[0].get("label"), candidates
+        contains = [c for c in candidates if isinstance(c.get("label"), str) and explicit_label in c["label"]]
         if len(contains) == 1:
-            return contains[0]["id"], contains[0]["label"]
+            return contains[0]["id"], contains[0].get("label"), candidates
 
-    repo_slug = infer_repo_slug(cwd)
     if repo_slug:
-        matched = [c for c in candidates if c["label"] == repo_slug]
-        if len(matched) == 1:
-            return matched[0]["id"], matched[0]["label"]
+        exact = [c for c in candidates if c.get("label") == repo_slug]
+        if len(exact) == 1:
+            return exact[0]["id"], exact[0].get("label"), candidates
+
+        repo_map_matches = [c for c in candidates if repo_slug in env_repo_slugs(c)]
+        if len(repo_map_matches) == 1:
+            return repo_map_matches[0]["id"], repo_map_matches[0].get("label"), candidates
 
     if len(candidates) == 1:
-        return candidates[0]["id"], candidates[0]["label"]
+        return candidates[0]["id"], candidates[0].get("label"), candidates
 
-    choices = "\n".join(f"- {c['id']}  {c['label']}" for c in candidates)
-    raise SystemExit(f"Could not uniquely detect a cloud environment. Pass --env or --env-label.\nCandidates:\n{choices}")
+    raise SystemExit(
+        "Could not uniquely detect a cloud environment. Pass --env or --env-label.\nCandidates:\n"
+        f"{format_env_choices(candidates)}"
+    )
 
 
 def detect_branch(cwd: pathlib.Path, explicit_branch: str | None) -> str:
@@ -192,6 +278,12 @@ def main() -> int:
     )
     parser.add_argument("--env", help="Codex Cloud environment ID.")
     parser.add_argument("--env-label", help="Preferred environment label when auto-detecting.")
+    parser.add_argument("--repo-slug", help="GitHub repo slug to resolve environments for, e.g. owner/repo.")
+    parser.add_argument(
+        "--list-envs",
+        action="store_true",
+        help="List candidate environments for the inferred or explicit repo slug, then exit.",
+    )
     parser.add_argument(
         "--allow-env-mismatch",
         action="store_true",
@@ -216,8 +308,13 @@ def main() -> int:
     prompt_dir = pathlib.Path(args.prompt_dir).expanduser().resolve()
     manifest_path = pathlib.Path(args.manifest).expanduser().resolve() if args.manifest else (prompt_dir / "fanout-manifest.json")
 
-    repo_slug = infer_repo_slug(cwd)
-    env_id, env_label = detect_env(args.env, args.env_label, cwd)
+    repo_slug = args.repo_slug or infer_repo_slug(cwd)
+    if args.list_envs:
+        candidates = fetch_api_env_candidates(repo_slug)
+        print(format_env_choices(candidates))
+        return 0
+
+    env_id, env_label, env_candidates = detect_env(args.env, args.env_label, cwd, repo_slug)
     if not args.allow_env_mismatch and not env_matches_repo(repo_slug, env_label):
         raise SystemExit(
             "Refusing to launch cloud fanout with mismatched repo/environment.\n"
@@ -259,6 +356,10 @@ def main() -> int:
         "branch_synced": local_head == remote_head,
         "env_id": env_id,
         "env_label": env_label,
+        "env_candidates": [
+            {"id": candidate.get("id"), "label": candidate.get("label"), "repos": env_repo_slugs(candidate)}
+            for candidate in env_candidates
+        ],
         "attempts_requested": args.attempts,
         "prompt_attempt_overrides": {str(path): attempts for path, attempts in prompt_attempts.items()},
         "tasks": [],

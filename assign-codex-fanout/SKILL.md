@@ -152,9 +152,15 @@ python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
   --cwd /path/to/repo \
   --branch main \
   --remote-branch origin/main \
-  --env <verified-env-id> \
   --attempts 4
 ```
+
+Environment rule:
+
+- prefer repo-based auto-resolution over manually copying env ids
+- the launcher should infer the repo slug from `origin`, query Codex Cloud for matching environments, and auto-pick the exact `<owner>/<repo>` label when present
+- use `--env` only as an override
+- use `--list-envs` when you want to inspect candidates before launch
 
 For mixed-fanout waves, override individual prompts:
 
