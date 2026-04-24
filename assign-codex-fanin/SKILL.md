@@ -26,6 +26,7 @@ This skill is intentionally generic:
 ## Scripts
 
 - [Collect cloud artifacts](./scripts/collect-cloud-artifacts.py)
+- [Wait until a wave is ready for fan-in](./scripts/wait-for-fanin.py)
 
 ## Workflow
 
@@ -51,6 +52,23 @@ This creates an artifact bundle with:
 
 When the fanout manifest includes `remote_branch` / `remote_head`, treat that as
 the cloud-visible source of truth rather than the current local branch tip.
+
+If you expect the wave to keep running for a while and want to avoid premature
+“fan in?” checks, use:
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/wait-for-fanin.py \
+  <manifest.json>
+```
+
+Readiness modes:
+
+- `--mode partial`: wake up once every task has either a final diff or at least
+  one successful attempt diff
+- `--mode full`: wake up only once every task has a task-level final diff
+
+The waiter re-runs artifact collection on each poll, refreshes
+`artifact-index.json`, and exits once the selected readiness threshold is met.
 
 ### 2. Inspect convergence
 
@@ -105,6 +123,8 @@ Depending on the task, the synthesis can be:
 
 - inspect attempt diffs, not just final diffs, when the quality bar matters
 - use the best available evidence, not only task-level finals
+- prefer the waiter script when a wave is still running, instead of repeatedly
+  treating placeholder `no diff` bundles as if they were meaningful evidence
 - do not average the attempts blindly; fit the synthesis to the repo’s real constraints
 - preserve strong reasons to keep custom code when the repo has hot-path or proof boundaries
 - for implementation fanin, call out merge conflicts, overlapping write scopes, and missing tests
