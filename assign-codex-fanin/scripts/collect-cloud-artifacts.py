@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import re
 import subprocess
+import time
 from typing import Any
 
 
@@ -18,6 +18,36 @@ def run(cmd: list[str], cwd: pathlib.Path | None = None) -> subprocess.Completed
         capture_output=True,
         check=False,
     )
+
+
+def is_rate_limited(result: subprocess.CompletedProcess[str]) -> bool:
+    text = (result.stdout or "") + (result.stderr or "")
+    return "429 Too Many Requests" in text or "Rate limit exceeded" in text
+
+
+def run_with_retry(
+    cmd: list[str],
+    cwd: pathlib.Path | None = None,
+    retry_429: int = 3,
+    retry_delay_sec: float = 2.0,
+) -> subprocess.CompletedProcess[str]:
+    attempt = 0
+    last = run(cmd, cwd=cwd)
+    while attempt < retry_429 and is_rate_limited(last):
+        sleep_sec = retry_delay_sec * (2**attempt)
+        print(f"rate limited, retrying in {sleep_sec:.1f}s: {' '.join(cmd)}")
+        time.sleep(sleep_sec)
+        attempt += 1
+        last = run(cmd, cwd=cwd)
+    return last
+
+
+def rev_parse(cwd: pathlib.Path, ref: str) -> str | None:
+    result = run(["git", "rev-parse", ref], cwd=cwd)
+    value = result.stdout.strip()
+    if result.returncode != 0 or not value:
+        return None
+    return value
 
 
 def slugify(value: str) -> str:
@@ -75,6 +105,12 @@ def main() -> int:
     parser.add_argument("--output-dir", help="Output directory. Defaults to <manifest-dir>/cloud-artifacts.")
     parser.add_argument("--final-only", action="store_true", help="Only save final diffs, not per-attempt diffs.")
     parser.add_argument("--attempts", type=int, help="Override attempt count instead of using the manifest value.")
+    parser.add_argument(
+        "--remote-branch",
+        help="Remote-tracking branch whose state should be treated as the cloud source of truth. Defaults to manifest remote_branch.",
+    )
+    parser.add_argument("--retry-429", type=int, default=3, help="How many times to retry a cloud call that returns HTTP 429.")
+    parser.add_argument("--retry-delay-sec", type=float, default=2.0, help="Initial delay before retrying a rate-limited cloud call.")
     args = parser.parse_args()
 
     if not args.manifest and not args.task:
@@ -93,6 +129,9 @@ def main() -> int:
         }
 
     cwd = pathlib.Path(manifest.get("cwd", ".")).expanduser().resolve()
+    remote_branch = args.remote_branch or manifest.get("remote_branch")
+    manifest_remote_head = manifest.get("remote_head")
+    current_remote_head = rev_parse(cwd, remote_branch) if remote_branch else None
     output_dir = pathlib.Path(args.output_dir).expanduser().resolve() if args.output_dir else ((manifest_path.parent / "cloud-artifacts") if manifest_path else (cwd / "cloud-artifacts"))
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -100,6 +139,12 @@ def main() -> int:
     index: dict[str, Any] = {
         "manifest": str(manifest_path) if manifest_path else None,
         "cwd": str(cwd),
+        "remote_branch": remote_branch,
+        "manifest_remote_head": manifest_remote_head,
+        "current_remote_head": current_remote_head,
+        "remote_head_matches_manifest": (
+            manifest_remote_head == current_remote_head if manifest_remote_head and current_remote_head else None
+        ),
         "attempts_saved": attempts,
         "tasks": [],
     }
@@ -115,12 +160,22 @@ def main() -> int:
 
         print(f"\n==> {name} ({task_id})")
 
-        status = run(["codex", "cloud", "status", task_id], cwd=cwd)
+        status = run_with_retry(
+            ["codex", "cloud", "status", task_id],
+            cwd=cwd,
+            retry_429=args.retry_429,
+            retry_delay_sec=args.retry_delay_sec,
+        )
         (task_dir / "status.txt").write_text(status.stdout + status.stderr)
 
         task_attempts = args.attempts or int(task.get("attempts", attempts))
 
-        final_diff = run(["codex", "cloud", "diff", task_id], cwd=cwd)
+        final_diff = run_with_retry(
+            ["codex", "cloud", "diff", task_id],
+            cwd=cwd,
+            retry_429=args.retry_429,
+            retry_delay_sec=args.retry_delay_sec,
+        )
         final_text = final_diff.stdout + final_diff.stderr
         (task_dir / "final.diff.txt").write_text(final_text)
 
@@ -134,7 +189,12 @@ def main() -> int:
         attempt_extracts: list[dict[str, Any]] = []
         if not args.final_only:
             for attempt in range(1, task_attempts + 1):
-                result = run(["codex", "cloud", "diff", task_id, "--attempt", str(attempt)], cwd=cwd)
+                result = run_with_retry(
+                    ["codex", "cloud", "diff", task_id, "--attempt", str(attempt)],
+                    cwd=cwd,
+                    retry_429=args.retry_429,
+                    retry_delay_sec=args.retry_delay_sec,
+                )
                 text = result.stdout + result.stderr
                 attempt_path = task_dir / f"attempt-{attempt}.diff.txt"
                 attempt_path.write_text(text)

@@ -49,6 +49,9 @@ This creates an artifact bundle with:
 - extracted attempt-created files when the task is still pending but one or more attempts already finished
 - `artifact-index.json`
 
+When the fanout manifest includes `remote_branch` / `remote_head`, treat that as
+the cloud-visible source of truth rather than the current local branch tip.
+
 ### 2. Inspect convergence
 
 For each workstream, answer:
@@ -82,6 +85,10 @@ Do not synthesize cloud outputs in isolation. Compare them against:
 - verification constraints
 - tests
 - benchmark harnesses
+
+Use the manifest's `remote_branch` / `remote_head` when present to reason about
+what the cloud actually saw. Do not silently assume the current local branch tip
+matches the launched branch state.
 
 ### 4. Produce one synthesis
 

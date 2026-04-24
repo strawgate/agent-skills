@@ -32,7 +32,15 @@ This skill is intentionally generic:
 - one cloud task per workstream
 - choose attempt count by importance, not by habit
 - prompts stored in the repo
-- current branch used unless explicitly overridden
+- current branch name is fine **only when the matching remote branch is pushed**
+- the launcher should treat the remote branch as the cloud source of truth
+
+Operational rule:
+
+- push first
+- then launch
+- by default the launcher should verify `HEAD == origin/<branch>` before creating tasks
+- only bypass that intentionally
 
 Recommended attempt scaling:
 
@@ -116,6 +124,17 @@ When prior cloud work matters, prefer creating a repo-local summary input first:
 - point the new prompt at that local file
 - do not rely on task URLs alone for continuity
 
+### 3b. Prefer remote-truth over local-branch assumptions
+
+Cloud agents see the pushed remote branch state, not your unstaged or unpushed local checkout.
+
+Treat this as a hard rule:
+
+- the launched branch is whatever the cloud can resolve remotely
+- local `main` ahead of `origin/main` is **not** safe launch context
+- if the launcher records a remote branch/head in the manifest, that is the
+  branch state later fan-in should treat as authoritative
+
 ### 4. Launch Codex Cloud
 
 Use:
@@ -123,6 +142,17 @@ Use:
 ```bash
 python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
   --prompt-dir <dir-with-prompts> \
+  --attempts 4
+```
+
+Recommended:
+
+```bash
+python3 ${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py \
+  --cwd /path/to/repo \
+  --branch main \
+  --remote-branch origin/main \
+  --env <verified-env-id> \
   --attempts 4
 ```
 
@@ -148,6 +178,8 @@ The launch script writes a manifest with:
 
 - prompt files
 - branch
+- remote branch
+- local and remote HEAD at launch time
 - cloud environment
 - task IDs
 - task URLs

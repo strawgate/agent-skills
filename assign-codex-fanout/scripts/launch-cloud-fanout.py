@@ -123,6 +123,14 @@ def detect_branch(cwd: pathlib.Path, explicit_branch: str | None) -> str:
     return branch
 
 
+def rev_parse(cwd: pathlib.Path, ref: str) -> str | None:
+    result = run(["git", "rev-parse", ref], cwd=cwd)
+    value = result.stdout.strip()
+    if result.returncode != 0 or not value:
+        return None
+    return value
+
+
 def discover_prompts(prompt_dir: pathlib.Path, pattern: str, explicit_prompts: list[str]) -> list[pathlib.Path]:
     if explicit_prompts:
         prompts = [pathlib.Path(p).expanduser().resolve() for p in explicit_prompts]
@@ -166,8 +174,17 @@ def main() -> int:
     parser.add_argument("--env", help="Codex Cloud environment ID.")
     parser.add_argument("--env-label", help="Preferred environment label when auto-detecting.")
     parser.add_argument("--branch", help="Git branch to run in cloud.")
+    parser.add_argument(
+        "--remote-branch",
+        help="Remote-tracking branch that should match the launched cloud branch. Defaults to origin/<branch>.",
+    )
     parser.add_argument("--cwd", default=".", help="Repo root for git branch and env inference.")
     parser.add_argument("--manifest", help="Output manifest path. Defaults to <prompt-dir>/fanout-manifest.json.")
+    parser.add_argument(
+        "--allow-unpushed",
+        action="store_true",
+        help="Allow launching even when local HEAD differs from the remote-tracking branch head.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them.")
     args = parser.parse_args()
 
@@ -177,6 +194,23 @@ def main() -> int:
 
     env_id, env_label = detect_env(args.env, args.env_label, cwd)
     branch = detect_branch(cwd, args.branch)
+    remote_branch = args.remote_branch or f"origin/{branch}"
+    local_head = rev_parse(cwd, "HEAD")
+    remote_head = rev_parse(cwd, remote_branch)
+    if remote_head is None:
+        raise SystemExit(
+            f"Could not resolve remote branch {remote_branch!r}. Push the branch first or pass --remote-branch explicitly."
+        )
+    if local_head is None:
+        raise SystemExit("Could not resolve local HEAD.")
+    if local_head != remote_head and not args.allow_unpushed:
+        raise SystemExit(
+            "Local HEAD does not match the remote branch cloud will see.\n"
+            f"  local HEAD:  {local_head}\n"
+            f"  remote HEAD: {remote_head}\n"
+            f"  remote ref:  {remote_branch}\n"
+            "Push first, or pass --allow-unpushed if you intentionally want to launch against stale remote state."
+        )
     prompts = discover_prompts(prompt_dir, args.pattern, args.prompt)
     prompt_attempts = parse_prompt_attempt_overrides(args.prompt_attempt)
 
@@ -186,6 +220,10 @@ def main() -> int:
         "prompt_dir": str(prompt_dir),
         "pattern": args.pattern,
         "branch": branch,
+        "remote_branch": remote_branch,
+        "local_head": local_head,
+        "remote_head": remote_head,
+        "branch_synced": local_head == remote_head,
         "env_id": env_id,
         "env_label": env_label,
         "attempts_requested": args.attempts,
