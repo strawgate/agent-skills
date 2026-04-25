@@ -31,57 +31,24 @@ claude --version 2>&1
 
 If either fails, tell the user what's missing and stop.
 
-## Step 2: Fetch Issue Details
+## Step 2: Fetch Issue Details and Craft Prompt
 
-For each issue, fetch full context:
+For each issue, use the shared issue-to-prompt builder:
 
 ```bash
-gh issue view ISSUE_NUM --repo OWNER/REPO --json number,title,body,labels,assignees,comments,milestone
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PROMPT=$("$SKILL_DIR/../_shared/github-issue-prompt/scripts/build-issue-prompt.sh" \
+  OWNER/REPO ISSUE_NUM --agent-name claude --max-body 2000)
 ```
 
-Collect all issue details. If an issue doesn't exist, warn and skip it.
+Add `--plan` flag for plan-only mode. Add `--branch BRANCH` to override the default branch.
 
-## Step 3: Craft the Prompt
-
-For each issue, build a prompt following this template:
-
-```
-Fix GitHub issue OWNER/REPO#NUMBER: TITLE
-
-## Issue Description
-<issue body, trimmed to first 2000 chars if very long>
-
-## Labels
-<comma-separated labels>
-
-## Key Comments
-<last 3 comments if any, each trimmed to 500 chars>
-
-## Instructions
-- Read the repo's CLAUDE.md and dev-docs/ for project conventions before starting.
-- Work on a new branch named `fix/issue-NUMBER` (or `feat/issue-NUMBER` for enhancements).
-- Write tests that cover the change.
-- Run the project's lint and test commands to verify your changes.
-- Create a PR referencing the issue (e.g., "Fixes #NUMBER") when done.
-- Link back to this session in the PR body using the CLAUDE_CODE_REMOTE_SESSION_ID env var.
-```
-
-If **--plan** was specified, replace the Instructions section with:
-```
-## Instructions
-- Read the repo's CLAUDE.md and dev-docs/ for project conventions.
-- Research the codebase to understand the relevant code paths.
-- Produce a detailed implementation plan with specific files, functions, and changes needed.
-- Do NOT edit any source code. Only research and plan.
-- Save the plan as a markdown file in the repo.
-```
-
-If **--autofix** was specified, append to Instructions:
+If **--autofix** was specified, append to the prompt:
 ```
 - After creating the PR, enable auto-fix to watch for CI failures and review comments.
 ```
 
-## Step 4: Launch Cloud Sessions
+## Step 3: Launch Cloud Sessions
 
 For each issue, launch a cloud session. Ensure you are on the correct branch first if --branch was specified.
 
@@ -93,7 +60,7 @@ If launching multiple issues, run each `claude --remote` command sequentially (e
 
 **Important**: `--remote` requires the current directory to be a git repo with a GitHub remote. The cloud VM clones from GitHub, so any unpushed local commits won't be available. Warn the user if `git status` shows unpushed commits on the current branch.
 
-## Step 5: Report
+## Step 4: Report
 
 Print a summary table:
 

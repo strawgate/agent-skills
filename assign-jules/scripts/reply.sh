@@ -10,6 +10,7 @@ set -euo pipefail
 
 SESSION_ID="${1:?Usage: reply.sh SESSION_ID [\"message\"]}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../_shared/jules-api/jules-lib.sh"
 
 # Use provided message or default self-review prompt
 if [ -n "${2:-}" ]; then
@@ -18,30 +19,17 @@ else
     MESSAGE=$(cat "$SCRIPT_DIR/self-review-prompt.txt")
 fi
 
-if [ -z "${JULES_API_KEY:-}" ]; then
-    echo "Error: JULES_API_KEY not set. Get your key from https://jules.google.com/settings#api"
-    exit 1
-fi
-
-BASE_URL="https://jules.googleapis.com/v1alpha"
+jules_require_key
 
 # Check session state
 echo "Fetching session ${SESSION_ID}..."
-STATE=$(curl -s \
-    -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-    "${BASE_URL}/sessions/${SESSION_ID}" \
-    | jq -r '.state // "UNKNOWN"')
+STATE=$(jules_get_state "$SESSION_ID")
 
 echo "Session state: ${STATE}"
 
 # Send message
 echo "Sending message..."
-RESPONSE=$(curl -s \
-    -X POST \
-    -H "Content-Type: application/json" \
-    -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-    "${BASE_URL}/sessions/${SESSION_ID}:sendMessage" \
-    -d "$(jq -n --arg msg "$MESSAGE" '{prompt: $msg}')")
+RESPONSE=$(jules_send_message "$SESSION_ID" "$MESSAGE")
 
 NEW_STATE=$(echo "$RESPONSE" | jq -r '.state // "UNKNOWN"')
 echo "Message sent. New state: ${NEW_STATE}"

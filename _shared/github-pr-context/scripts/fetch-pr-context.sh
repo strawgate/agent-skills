@@ -133,39 +133,14 @@ if ! gh api "repos/$repo/pulls/$pr_number/comments" --paginate | jq -s 'add // [
   printf '[]\n' > "$out_dir/review_comments.json"
 fi
 
-if ! gh api graphql --paginate \
-  -f query='query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $number) {
-        reviewThreads(first: 100, after: $endCursor) {
-          pageInfo { hasNextPage endCursor }
-          nodes {
-            id
-            isResolved
-            isOutdated
-            isCollapsed
-            path
-            line
-            startLine
-            comments(first: 100) {
-              nodes {
-                id
-                databaseId
-                body
-                createdAt
-                author { login }
-              }
-            }
-          }
-        }
-      }
-    }
-  }' \
-  -F owner="$owner" \
-  -F repo="$repo_name" \
-  -F number="$pr_number" \
-  --jq '.data.repository.pullRequest.reviewThreads.nodes' \
-  | jq -s 'add // []' > "$out_dir/review_threads.json"; then
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+review_threads_script="$script_dir/../../github-review-threads/scripts/review-threads.sh"
+
+if [[ -x "$review_threads_script" ]]; then
+  if ! "$review_threads_script" list "$repo" "$pr_number" --json > "$out_dir/review_threads.json"; then
+    printf '[]\n' > "$out_dir/review_threads.json"
+  fi
+else
   printf '[]\n' > "$out_dir/review_threads.json"
 fi
 

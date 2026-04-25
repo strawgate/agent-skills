@@ -12,50 +12,29 @@ Resolve or unresolve review comment threads on GitHub PRs via the GraphQL API.
 ## List unresolved threads on a PR
 
 ```bash
-gh api graphql -f query='
-  query {
-    repository(owner: "OWNER", name: "REPO") {
-      pullRequest(number: PR_NUMBER) {
-        reviewThreads(first: 50) {
-          nodes {
-            id
-            isResolved
-            comments(first: 1) {
-              nodes {
-                databaseId
-                body
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {threadId: .id, commentId: .comments.nodes[0].databaseId, body: (.comments.nodes[0].body[:100])}'
+# Human-readable (tab-separated: id, status, outdated, path, line, author, body)
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolved OWNER/REPO PR_NUMBER
+
+# Full JSON (for programmatic use)
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolved OWNER/REPO PR_NUMBER --json
 ```
 
 ## Resolve a thread
 
 ```bash
-gh api graphql -f query='
-  mutation {
-    resolveReviewThread(input: {threadId: "THREAD_ID"}) {
-      thread { isResolved }
-    }
-  }
-' --jq '.data.resolveReviewThread.thread.isResolved'
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" resolve THREAD_ID
 ```
 
 ## Unresolve a thread
 
 ```bash
-gh api graphql -f query='
-  mutation {
-    unresolveReviewThread(input: {threadId: "THREAD_ID"}) {
-      thread { isResolved }
-    }
-  }
-' --jq '.data.unresolveReviewThread.thread.isResolved'
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolve THREAD_ID
+```
+
+## Count unresolved threads
+
+```bash
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" count OWNER/REPO PR_NUMBER
 ```
 
 ## Workflow

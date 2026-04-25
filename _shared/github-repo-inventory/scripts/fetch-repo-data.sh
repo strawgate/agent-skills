@@ -21,7 +21,7 @@ write_record_files() {
 
   mkdir -p "$records_dir"
 
-  python - "$input_json" "$kind" "$state" "$records_dir" "$index_file" <<'PY'
+  python3 - "$input_json" "$kind" "$state" "$records_dir" "$index_file" <<'PY'
 import json
 import re
 import sys

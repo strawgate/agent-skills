@@ -218,27 +218,12 @@ Every PR triage round MUST include a thread resolution pass. Do not leave addres
 ### Step 1: List all unresolved threads with details
 
 ```bash
-gh api graphql -f query='{
-  repository(owner: "OWNER", name: "REPO") {
-    pullRequest(number: PR_NUMBER) {
-      reviewThreads(first: 100) {
-        nodes {
-          id
-          isResolved
-          isOutdated
-          comments(first: 1) {
-            nodes {
-              author { login }
-              body
-              path
-              line
-            }
-          }
-        }
-      }
-    }
-  }
-}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | {id: .id, outdated: .isOutdated, author: .comments.nodes[0].author.login, path: .comments.nodes[0].path, line: .comments.nodes[0].line, body: (.comments.nodes[0].body[:300] | gsub("\n"; " "))}'
+# Human-readable listing
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolved OWNER/REPO PR_NUMBER
+
+# Full JSON for programmatic use
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolved OWNER/REPO PR_NUMBER --json
 ```
 
 ### Step 2: Categorize each unresolved thread
@@ -253,17 +238,14 @@ For each thread, determine:
 ### Step 3: Resolve addressed threads
 
 ```bash
-gh api graphql -f query='mutation {
-  resolveReviewThread(input: { threadId: "THREAD_ID" }) {
-    thread { isResolved }
-  }
-}'
-```
+REVIEW_THREADS="$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh"
 
-To resolve multiple threads at once:
-```bash
+# Single thread
+"$REVIEW_THREADS" resolve THREAD_ID
+
+# Multiple threads
 for tid in THREAD_ID_1 THREAD_ID_2 THREAD_ID_3; do
-  gh api graphql -f query="mutation { resolveReviewThread(input: { threadId: \"$tid\" }) { thread { isResolved } } }" --jq '.data.resolveReviewThread.thread.isResolved'
+  "$REVIEW_THREADS" resolve "$tid"
 done
 ```
 
@@ -286,15 +268,7 @@ gh pr comment PR_NUMBER --repo OWNER/REPO --body "Remaining unresolved threads a
 
 After resolution, confirm:
 ```bash
-gh api graphql -f query='{
-  repository(owner: "OWNER", name: "REPO") {
-    pullRequest(number: PR_NUMBER) {
-      reviewThreads(first: 100) {
-        nodes { isResolved }
-      }
-    }
-  }
-}' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
+"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" count OWNER/REPO PR_NUMBER
 ```
 
 Target: **0 unresolved threads** before marking a PR as merge-ready.

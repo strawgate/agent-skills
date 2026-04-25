@@ -64,36 +64,15 @@ collect_snapshot() {
   local pr="$2"
   local owner="${repo%/*}"
   local repo_name="${repo#*/}"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local review_threads_script="$script_dir/../../_shared/github-review-threads/scripts/review-threads.sh"
 
   local pr_json comments_json reviews_json threads_json checks_json
   pr_json="$(gh pr view "$pr" --repo "$repo" --json number,title,url,state,isDraft,mergeable,reviewDecision,baseRefName,headRefName,headRefOid,statusCheckRollup)"
   comments_json="$(gh api "repos/$repo/issues/$pr/comments" --paginate | jq -s 'add // [] | map({id, author: .user.login, createdAt: .created_at, updatedAt: .updated_at})')"
   reviews_json="$(gh api "repos/$repo/pulls/$pr/reviews" --paginate | jq -s 'add // [] | map({id, author: .user.login, state, submittedAt: .submitted_at, commitId: .commit_id})')"
-  threads_json="$(gh api graphql --paginate \
-    -f query='query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $number) {
-          reviewThreads(first: 100, after: $endCursor) {
-            pageInfo { hasNextPage endCursor }
-            nodes {
-              id
-              isResolved
-              isOutdated
-              path
-              line
-              comments(first: 1) {
-                nodes {
-                  author { login }
-                  body
-                }
-              }
-            }
-          }
-        }
-      }
-    }' \
-    -F owner="$owner" -F repo="$repo_name" -F number="$pr" \
-    --jq '.data.repository.pullRequest.reviewThreads.nodes' | jq -s 'add // [] | map({id, isResolved, isOutdated, path: (.path // ""), line: (.line // 0), author: (.comments.nodes[0].author.login // ""), body: (.comments.nodes[0].body // "")})')"
+  threads_json="$("$review_threads_script" list "$repo" "$pr" --json | jq '[.[] | {id, isResolved, isOutdated, path: (.path // ""), line: (.line // 0), author: (.comments.nodes[0].author.login // ""), body: (.comments.nodes[0].body // "")}]')"
   checks_json="$(jq -c '.statusCheckRollup // []' <<<"$pr_json" | normalize_check_rollup)"
 
   jq -n \

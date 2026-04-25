@@ -15,81 +15,29 @@ Parse `$ARGUMENTS` for:
 - **owner/repo** — e.g., `strawgate/memagent`. If not provided and we're in a git repo, detect from `gh repo view --json nameWithOwner -q .nameWithOwner`. Otherwise ask.
 - **Issue numbers** — e.g., `#242 #243` or `242 243`. If not provided, ask.
 
-## Step 1: Get Repo and Bot IDs
+## Step 1: Run the assignment script
 
 ```bash
-# Get repo ID and Copilot bot ID
-gh api graphql \
-  -H "GraphQL-Features: issues_copilot_assignment_api_support" \
-  -f query='{
-    repository(owner: "OWNER", name: "REPO") {
-      id
-      suggestedActors(loginNames: "copilot", capabilities: [CAN_BE_ASSIGNED], first: 1) {
-        nodes {
-          login
-          ... on Bot { id }
-        }
-      }
-    }
-  }'
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+"$SKILL_DIR/scripts/assign-to-copilot.sh" OWNER/REPO ISSUE_NUM1 ISSUE_NUM2 ...
 ```
 
-Store the `repository.id` and `suggestedActors.nodes[0].id` values.
+Optional flags:
+- `--agent AGENT_NAME` — override the auto-detected custom agent
+- `--model MODEL` — override the default model (default: `claude-opus-4.6`)
 
-## Step 2: Detect Custom Agent
+The script:
+1. Gets the repo `node_id` via **REST** (saves a GraphQL call)
+2. Gets the Copilot bot ID via GraphQL (no REST equivalent)
+3. Auto-detects custom agents from `.github/agents/` via **REST**
+4. Gets each issue's `node_id` via **REST** (saves 1 GraphQL call per issue)
+5. Assigns via the `updateIssue` GraphQL mutation (no REST equivalent for `agentAssignment`)
 
-Check if the repo has a custom agent defined:
-```bash
-gh api repos/OWNER/REPO/contents/.github/agents --jq '.[].name' 2>/dev/null
-```
+**Net result**: Only 2 GraphQL calls total (1 for bot ID + 1 per issue for assignment), down from 3+N.
 
-If agents exist, use the first `.agent.md` file's name (without the extension) as the `customAgent` value. If none exist, omit the `customAgent` field.
+## Step 2: Confirm
 
-## Step 3: Get Issue GraphQL IDs
-
-For each issue number:
-```bash
-gh api graphql -f query='{
-  repository(owner: "OWNER", name: "REPO") {
-    issue(number: ISSUE_NUM) { id title }
-  }
-}'
-```
-
-## Step 4: Assign Each Issue
-
-For each issue, run the assignment mutation:
-```bash
-gh api graphql \
-  -H "GraphQL-Features: issues_copilot_assignment_api_support" \
-  -H "GraphQL-Features: coding_agent_model_selection" \
-  -f query='mutation {
-    updateIssue(input: {
-      id: "ISSUE_GRAPHQL_ID"
-      assigneeIds: ["COPILOT_BOT_ID"]
-      agentAssignment: {
-        targetRepositoryId: "REPO_ID"
-        customAgent: "AGENT_NAME"
-        model: "claude-opus-4.6"
-      }
-    }) {
-      issue {
-        title
-        assignees(first: 5) { nodes { login } }
-      }
-    }
-  }'
-```
-
-**Required headers** — both `GraphQL-Features` headers are mandatory:
-- `issues_copilot_assignment_api_support`
-- `coding_agent_model_selection`
-
-**Model** — defaults to `claude-opus-4.6`. If the user specifies a different model, use that instead.
-
-## Step 5: Confirm
-
-Print a summary:
+The script prints a summary table:
 
 | Issue | Title | Agent | Model |
 |-------|-------|-------|-------|

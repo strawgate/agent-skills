@@ -25,7 +25,12 @@ issues_path, work_units_path, links_path, unassigned_path, summary_path = sys.ar
 with open(issues_path) as fh:
     raw_issues = json.load(fh)
 
-child_ref_pattern = re.compile(r'(?:- \[[ xX]\]\s*#(\d+))|(?:\|\s*#(\d+)\s*\|)|(?:#(\d+))')
+child_ref_pattern = re.compile(
+    r'(?:- \[[ xX]\]\s*#(\d+))'       # task list checkbox items
+    r'|(?:\|\s*#(\d+)\s*\|)'           # table cells
+    r'|(?:^[ \t]*[-*]\s*#(\d+)\b)',    # plain list items at start of line
+    re.MULTILINE
+)
 
 def label_names(issue):
     names = []

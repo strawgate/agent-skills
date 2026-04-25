@@ -16,26 +16,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../_shared/jules-api/jules-lib.sh"
+
 REVIEW_PROMPT=$(cat "$SCRIPT_DIR/self-review-prompt.txt")
 TRACKED_FILE="$SCRIPT_DIR/.reviewed-sessions"
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")}"
 
-if [ -z "${JULES_API_KEY:-}" ]; then
-    echo "Error: JULES_API_KEY not set. Get your key from https://jules.google.com/settings#api"
-    exit 1
-fi
-
-BASE_URL="https://jules.googleapis.com/v1alpha"
+jules_require_key
 
 touch "$TRACKED_FILE"
 
 echo "Fetching sessions..."
-SESSIONS=$(curl -s \
-    -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-    "${BASE_URL}/sessions?pageSize=50")
+ALL_SESSIONS=$(jules_list_all_sessions 100)
 
 # Extract completed sessions with their details
-COMPLETED=$(echo "$SESSIONS" | jq -r '.sessions[]? | select(.state == "COMPLETED") | .name' 2>/dev/null)
+COMPLETED=$(echo "$ALL_SESSIONS" | jq -r '.[]? | select(.state == "COMPLETED") | .name' 2>/dev/null)
 
 if [ -z "$COMPLETED" ]; then
     echo "No completed sessions found."
@@ -56,16 +51,13 @@ for SESSION_NAME in $COMPLETED; do
         continue
     fi
 
-    TITLE=$(echo "$SESSIONS" | jq -r --arg name "$SESSION_NAME" \
-        '.sessions[]? | select(.name == $name) | .title // "untitled"' 2>/dev/null)
+    TITLE=$(echo "$ALL_SESSIONS" | jq -r --arg name "$SESSION_NAME" \
+        '.[]? | select(.name == $name) | .title // "untitled"' 2>/dev/null)
 
     # Get session details to find the PR URL
-    SESSION_DETAIL=$(curl -s \
-        -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-        "${BASE_URL}/sessions/${SESSION_ID}")
+    SESSION_DETAIL=$(jules_get_session "$SESSION_ID")
 
-    PR_URL=$(echo "$SESSION_DETAIL" | jq -r \
-        '.outputs[]?.pullRequest?.url // empty' 2>/dev/null | head -1)
+    PR_URL=$(jules_extract_pr_url "$SESSION_DETAIL")
 
     if [ -z "$PR_URL" ]; then
         SKIPPED_NO_PR=$((SKIPPED_NO_PR + 1))
@@ -92,12 +84,7 @@ for SESSION_NAME in $COMPLETED; do
     echo "  PR: ${PR_URL} (OPEN)"
     echo "  Sending self-review prompt..."
 
-    RESPONSE=$(curl -s \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-        "${BASE_URL}/sessions/${SESSION_ID}:sendMessage" \
-        -d "$(jq -n --arg msg "$REVIEW_PROMPT" '{prompt: $msg}')")
+    RESPONSE=$(jules_send_message "$SESSION_ID" "$REVIEW_PROMPT")
 
     echo "  Sent. URL: https://jules.google.com/session/${SESSION_ID}"
 

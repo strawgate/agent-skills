@@ -7,17 +7,13 @@
 #
 set -euo pipefail
 
-if [ -z "${JULES_API_KEY:-}" ]; then
-    echo "Error: JULES_API_KEY not set. Get your key from https://jules.google.com/settings#api"
-    exit 1
-fi
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../../_shared/jules-api/jules-lib.sh"
 
-BASE_URL="https://jules.googleapis.com/v1alpha"
+jules_require_key
 
 echo "Fetching sessions..."
-SESSIONS=$(curl -s \
-    -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-    "${BASE_URL}/sessions?pageSize=100")
+SESSIONS=$(jules_list_sessions 100)
 
 COUNT=$(echo "$SESSIONS" | jq '[.sessions[]? | select(.state == "AWAITING_USER_FEEDBACK")] | length' 2>/dev/null)
 
@@ -40,9 +36,7 @@ echo "$SESSIONS" | jq -r '
     echo "    Updated: ${UPDATE_TIME}"
     echo "    URL: ${SESSION_URL}"
 
-    ACTIVITIES=$(curl -s \
-        -H "X-Goog-Api-Key: ${JULES_API_KEY}" \
-        "${BASE_URL}/sessions/${SESSION_ID}/activities?pageSize=20")
+    ACTIVITIES=$(jules_get_activities "$SESSION_ID" 20)
 
     LATEST_AGENT_MESSAGE=$(echo "$ACTIVITIES" | jq -r '
         [
