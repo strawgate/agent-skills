@@ -137,6 +137,42 @@ while IFS= read -r pr_line; do
       echo '[]' > "$pr_dir/reviews.json"
     fi
 
+    # Fetch review threads (GraphQL - 1 point)
+    if ! gh api graphql --paginate \
+      -f query='query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $endCursor) {
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                id
+                isResolved
+                isCollapsed
+                isOutdated
+                path
+                line
+                startLine
+                comments(first: 100) {
+                  nodes {
+                    id
+                    databaseId
+                    body
+                    createdAt
+                    author { login }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }' \
+      -F owner="${repo%%/*}" \
+      -F repo="${repo#*/}" \
+      -F number="$pr_num" \
+      --jq '.data.repository.pullRequest.reviewThreads.nodes' > "$pr_dir/threads.json" 2>/dev/null; then
+      echo '[]' > "$pr_dir/threads.json"
+    fi
+
     # Fetch full diff (REST - free)
     if ! gh pr diff "$pr_num" --repo "$repo" > "$pr_dir/pr.diff" 2>/dev/null; then
       echo '' > "$pr_dir/pr.diff"
@@ -156,9 +192,10 @@ while IFS= read -r pr_line; do
       echo '[]' > "$pr_dir/files.json"
     fi
 
-    # Write minimal metadata for quick triage (includes diffLines)
+    # Write minimal metadata for quick triage (includes diffLines and unresolved threads)
     checks_failed=$(jq '[.[] | select(.state=="FAILURE" or .state=="ERROR")] | length' "$pr_dir/checks.json" 2>/dev/null || echo 0)
     diff_lines=$(wc -l < "$pr_dir/pr.diff" 2>/dev/null || echo 0)
+    unresolved_threads=$(jq '[.[] | select(.isResolved == false)] | length' "$pr_dir/threads.json" 2>/dev/null || echo 0)
     jq -n \
       --argjson number "$pr_num" \
       --argjson isDraft "$is_draft" \
@@ -166,7 +203,8 @@ while IFS= read -r pr_line; do
       --argjson checksFailed "$checks_failed" \
       --arg updated "$updated" \
       --argjson diffLines "$diff_lines" \
-      '{number:$number, isDraft:$isDraft, mergeable:$mergeable, checksFailed:$checksFailed, updatedAt:$updated, diffLines:$diffLines}' \
+      --argjson unresolvedThreads "$unresolved_threads" \
+      '{number:$number, isDraft:$isDraft, mergeable:$mergeable, checksFailed:$checksFailed, updatedAt:$updated, diffLines:$diffLines, unresolvedThreads:$unresolvedThreads}' \
       > "$META_FILE"
 
   else
@@ -189,24 +227,28 @@ echo "[+] Writing overview files..."
 jq -r '.[] | "\(.number)\t\(.isDraft)\t\(.mergeable)\t\(.changedFiles)\t\(.title)"' "$OPEN_PRS" \
   > "$OUT_DIR/prs-open.txt"
 
-# Detailed listing with CI status and diff size
+# Detailed listing with CI status and unresolved threads
 {
-  echo "# | Draft | Mergeable | CI | DiffLines | Title"
+  echo "# | Draft | Mergeable | CI | Threads | Title"
   echo "---"
   while IFS= read -r pr_line; do
     pr_num=$(echo "$pr_line" | jq -r '.number')
     meta_file="$OUT_DIR/prs/${pr_num}/metadata.json"
     checks_failed=0
-    diff_lines=0
+    unresolved_threads=0
     if [[ -f "$meta_file" ]]; then
       checks_failed=$(jq -r '.checksFailed // 0' "$meta_file")
-      diff_lines=$(jq -r '.diffLines // 0' "$meta_file")
+      unresolved_threads=$(jq -r '.unresolvedThreads // 0' "$meta_file")
     fi
     ci_status="✓"
     if [[ "$checks_failed" -gt 0 ]]; then
       ci_status="✗$checks_failed"
     fi
-    echo "$pr_num | $(echo "$pr_line" | jq -r '.isDraft') | $(echo "$pr_line" | jq -r '.mergeable') | $ci_status | $diff_lines | $(echo "$pr_line" | jq -r '.title')"
+    threads_status="✓"
+    if [[ "$unresolved_threads" -gt 0 ]]; then
+      threads_status="✗$unresolved_threads"
+    fi
+    echo "$pr_num | $(echo "$pr_line" | jq -r '.isDraft') | $(echo "$pr_line" | jq -r '.mergeable') | $ci_status | $threads_status | $(echo "$pr_line" | jq -r '.title')"
   done < <(jq -c '.[]' "$OPEN_PRS")
 } > "$OUT_DIR/prs-overview.txt"
 
