@@ -23,7 +23,7 @@ The skill should:
 ## Scripts
 
 - [Wait for PR activity](${CLAUDE_SKILL_DIR}/scripts/wait-for-pr-activity.sh)
-- Reuses [Fetch PR context bundle](../pr-triage/scripts/fetch-pr-context.sh)
+- Uses `uv run pr-triage context` for context refresh (from [pr-triage](../_shared/github-pr-triage))
 
 ## Inputs
 

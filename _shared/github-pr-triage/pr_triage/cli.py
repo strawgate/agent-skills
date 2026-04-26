@@ -244,5 +244,37 @@ def details(owner_repo: str, pr_number: int, output_dir: Optional[str]):
     console.print(f"[dim]Saved to: {out_dir}/prs/{pr_number}/[/dim]")
 
 
+@cli.command()
+@click.argument("owner_repo")
+@click.argument("pr_number", type=int)
+@click.option("--output-dir", "-o", help="Output directory (default: /tmp/pr-triage/OWNER__REPO/pr-NUMBER/context)")
+def context(owner_repo: str, pr_number: int, output_dir: Optional[str]):
+    """Fetch full PR context bundle for follow-through (threads, comments, diff)."""
+    import shutil
+
+    owner, repo = github.get_owner_repo(owner_repo)
+
+    if output_dir:
+        context_dir = Path(output_dir)
+    else:
+        safe_name = owner_repo.replace("/", "__")
+        context_dir = Path(f"/tmp/pr-triage/{safe_name}/pr-{pr_number}/context")
+
+    context_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[bold]Fetching PR context: {owner_repo} #{pr_number}[/bold]")
+    console.print(f"[dim]Output: {context_dir}[/dim]\n")
+
+    data = run_details(owner, repo, pr_number, context_dir.parent.parent)
+
+    pr_dir = get_output_dir(owner_repo) / "prs" / str(pr_number)
+    if pr_dir.exists():
+        for f in pr_dir.iterdir():
+            if f.is_file():
+                shutil.copy2(f, context_dir / f.name)
+
+    console.print(f"[green]Context saved to {context_dir}[/green]")
+
+
 if __name__ == "__main__":
     cli()
