@@ -127,17 +127,6 @@ while IFS= read -r pr_line; do
       echo '[]' > "$pr_dir/checks.json"
     fi
 
-    # Write minimal metadata for quick triage
-    checks_failed=$(jq '[.[] | select(.state=="FAILURE" or .state=="ERROR")] | length' "$pr_dir/checks.json" 2>/dev/null || echo 0)
-    jq -n \
-      --argjson number "$pr_num" \
-      --argjson isDraft "$is_draft" \
-      --arg mergeable "$mergeable" \
-      --argjson checksFailed "$checks_failed" \
-      --arg updated "$updated" \
-      '{number:$number, isDraft:$isDraft, mergeable:$mergeable, checksFailed:$checksFailed, updatedAt:$updated}' \
-      > "$META_FILE"
-
     # Fetch comments (REST - free)
     if ! gh api "repos/$repo/pulls/$pr_num/comments" --paginate | jq -s 'add // []' > "$pr_dir/comments.json" 2>/dev/null; then
       echo '[]' > "$pr_dir/comments.json"
@@ -147,6 +136,38 @@ while IFS= read -r pr_line; do
     if ! gh api "repos/$repo/pulls/$pr_num/reviews" --paginate | jq -s 'add // []' > "$pr_dir/reviews.json" 2>/dev/null; then
       echo '[]' > "$pr_dir/reviews.json"
     fi
+
+    # Fetch full diff (REST - free)
+    if ! gh pr diff "$pr_num" --repo "$repo" > "$pr_dir/pr.diff" 2>/dev/null; then
+      echo '' > "$pr_dir/pr.diff"
+    fi
+
+    # Fetch file list with patches, save per-file diffs (REST - free)
+    mkdir -p "$pr_dir/diffs"
+    if gh api "repos/$repo/pulls/$pr_num/files" --paginate | jq -s 'add // []' > "$pr_dir/files.json" 2>/dev/null; then
+      jq -c '.[]' "$pr_dir/files.json" | while IFS= read -r entry; do
+        filename=$(printf '%s\n' "$entry" | jq -r '.filename')
+        patch_text=$(printf '%s\n' "$entry" | jq -r '.patch // empty')
+        [[ -n "$patch_text" ]] || continue
+        mkdir -p "$pr_dir/diffs/$(dirname "$filename")"
+        printf '%s\n' "$patch_text" > "$pr_dir/diffs/${filename}.diff"
+      done
+    else
+      echo '[]' > "$pr_dir/files.json"
+    fi
+
+    # Write minimal metadata for quick triage (includes diffLines)
+    checks_failed=$(jq '[.[] | select(.state=="FAILURE" or .state=="ERROR")] | length' "$pr_dir/checks.json" 2>/dev/null || echo 0)
+    diff_lines=$(wc -l < "$pr_dir/pr.diff" 2>/dev/null || echo 0)
+    jq -n \
+      --argjson number "$pr_num" \
+      --argjson isDraft "$is_draft" \
+      --arg mergeable "$mergeable" \
+      --argjson checksFailed "$checks_failed" \
+      --arg updated "$updated" \
+      --argjson diffLines "$diff_lines" \
+      '{number:$number, isDraft:$isDraft, mergeable:$mergeable, checksFailed:$checksFailed, updatedAt:$updated, diffLines:$diffLines}' \
+      > "$META_FILE"
 
   else
     echo "  #$pr_num - skipping (unchanged)"
@@ -168,22 +189,24 @@ echo "[+] Writing overview files..."
 jq -r '.[] | "\(.number)\t\(.isDraft)\t\(.mergeable)\t\(.changedFiles)\t\(.title)"' "$OPEN_PRS" \
   > "$OUT_DIR/prs-open.txt"
 
-# Detailed listing with CI status
+# Detailed listing with CI status and diff size
 {
-  echo "# | Draft | Mergeable | CI | Files | Title"
+  echo "# | Draft | Mergeable | CI | DiffLines | Title"
   echo "---"
   while IFS= read -r pr_line; do
     pr_num=$(echo "$pr_line" | jq -r '.number')
     meta_file="$OUT_DIR/prs/${pr_num}/metadata.json"
     checks_failed=0
+    diff_lines=0
     if [[ -f "$meta_file" ]]; then
       checks_failed=$(jq -r '.checksFailed // 0' "$meta_file")
+      diff_lines=$(jq -r '.diffLines // 0' "$meta_file")
     fi
     ci_status="✓"
     if [[ "$checks_failed" -gt 0 ]]; then
       ci_status="✗$checks_failed"
     fi
-    echo "$pr_num | $(echo "$pr_line" | jq -r '.isDraft') | $(echo "$pr_line" | jq -r '.mergeable') | $ci_status | $(echo "$pr_line" | jq -r '.changedFiles') | $(echo "$pr_line" | jq -r '.title')"
+    echo "$pr_num | $(echo "$pr_line" | jq -r '.isDraft') | $(echo "$pr_line" | jq -r '.mergeable') | $ci_status | $diff_lines | $(echo "$pr_line" | jq -r '.title')"
   done < <(jq -c '.[]' "$OPEN_PRS")
 } > "$OUT_DIR/prs-overview.txt"
 
