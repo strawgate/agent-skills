@@ -7,18 +7,16 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent, WebSearch, WebFetch
 
 # PR Triage
 
-Run through all open PRs for a repo, triage them, review code, fix issues, and prepare them for the user to approve merging.
-
-## Scripts
-
-- [Fetch PR context bundle](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context.sh)
-- [Build merge checklist](${CLAUDE_SKILL_DIR}/scripts/build-merge-checklist.sh)
-- [Mark PR in progress](${CLAUDE_SKILL_DIR}/scripts/mark-pr-in-progress.sh)
-- [Unmark PR in progress](${CLAUDE_SKILL_DIR}/scripts/unmark-pr-in-progress.sh)
+Triage all open PRs, review code, fix issues, and prepare for merge.
 
 ## Critical Rule: NEVER Merge Without Permission
 
-**You MUST NOT merge any PR unless the user explicitly says to merge it.** Present findings and wait for user decision.
+**You MUST NOT merge any PR unless the user explicitly says to merge it.**
+
+## Scripts
+
+- [Fetch PR triage overview](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-triage.sh)
+- [Deep fetch for specific PR](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context-deep.sh)
 
 ## Step 0: Determine the Target Repo
 
@@ -26,114 +24,114 @@ Run through all open PRs for a repo, triage them, review code, fix issues, and p
 gh repo view --json nameWithOwner -q .nameWithOwner
 ```
 
-## Step 1: Fetch Repo Data with Semantic Indexes
-
-For the full repo picture, run:
+## Step 1: Fetch Overview
 
 ```bash
-~/.claude/skills/_shared/github-repo-inventory/scripts/index-repo.sh OWNER/REPO
+~/.claude/skills/_shared/github-pr-triage/scripts/fetch-pr-triage.sh OWNER/REPO
 ```
 
-This creates `/tmp/issue-organizer/OWNER__REPO/` with:
+This creates `/tmp/pr-triage/OWNER__REPO/`:
+```
+├── open-prs.json           # Raw listing
+├── prs-overview.txt       # Quick triage view
+├── prs/                   # Active open PRs
+│   └── 2664/
+│       ├── pr.json         # PR metadata
+│       ├── checks.json     # CI checks
+│       ├── metadata.json   # Quick stats (mergeable, CI failures)
+│       ├── comments.json   # Discussion (REST, free)
+│       ├── reviews.json   # Reviews (REST, free)
+│       └── threads.json   # Review threads (GraphQL, 1pt)
+├── prs-merged/            # Archived after merge
+└── prs-closed/          # Archived after close
+```
+
+**GraphQL cost:** ~16 points for 5 PRs fresh, 1 point cached.
+
+## Step 2: Quick Triage with `prs-overview.txt`
 
 ```
-├── issues/N/issue.txt       # Full issue with similar_issues, similar_merged_prs
-├── prs/N/pr.txt           # Full PR with similar_issues
-├── prs-merged-last-100.txt # Recent merged PRs
-└── issues-open.txt
+# | Draft | Mergeable | CI | Files | Title
+---
+2664 | false | CONFLICTING | ✓ | 54 | feat: enforce indexing_slicing...
+2679 | false | MERGEABLE | ✗3 | 2 | fix(loki): normalize endpoint...
 ```
 
-**Use this to find:**
-- What issues a PR addresses (via `prs/N/pr.txt` similar_issues)
-- Related open PRs that might conflict
-- PRs that duplicate the same fix
+**Priority order:**
+1. `CONFLICTING` - must resolve conflicts
+2. `CI: ✗N` - N failing checks
+3. `Draft` - needs marking ready
+4. Large PRs (54 files) - review carefully
 
-## Step 2: List Open PRs
+## Step 3: Deep Dive for Problematic PRs
+
+For PRs with CI failures, conflicts, or needing review:
 
 ```bash
-gh pr list --repo OWNER/REPO --state open \
-  --json number,title,isDraft,author,mergeable \
-  --jq '.[] | "#\(.number) draft=\(.isDraft) mergeable=\(.mergeable) author=\(.author.login) \(.title)"'
+~/.claude/skills/_shared/github-pr-triage/scripts/fetch-pr-context-deep.sh OWNER/REPO PR_NUMBER
 ```
 
-Categorize:
-- **[WIP]** in title → skip unless asked
-- **Draft but not WIP** → mark ready
-- **CONFLICTING** → note for resolution
-- **Actionable** → review
+This fetches:
+- `pr.diff` - full unified diff
+- `files.json` - changed files
+- `diffs/<file>.diff` - per-file patches
+- `threads.json` - review threads with resolved/outdated state
 
-## Step 3: Fetch PR Context for Each Actionable PR
+## Step 4: CI and Review Check
 
-```bash
-${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context.sh OWNER/REPO PR_NUMBER
-```
-
-This writes to `/tmp/pr-context/OWNER__REPO/pr-NUMBER/`:
-- PR metadata, diff, changed files
-- Per-file diffs with line numbers
-- Prior reviews and threads
-- `merge-checklist.md`
-- `review-focus-files.txt`
-
-## Step 4: Check Semantic Relationships
-
-When reviewing a PR, use `/tmp/issue-organizer/OWNER__REPO/prs/N/pr.txt` to see:
-
-```
-similar_issues:
-  #1234 (score=0.782) ...
-  #5678 (score=0.654) ...
-```
-
-This shows what **open issues** the PR might address. If a PR strongly matches an issue you're triaging, it's likely the fix.
-
-**To find related open PRs** (potential conflicts):
-```bash
-# Look for PRs with similar titles or touching same areas
-grep -l "elasticsearch\|ES\|loki" /tmp/issue-organizer/OWNER__REPO/prs/*/pr.txt
-```
-
-## Step 5: CI and Review Check
+For each PR needing work:
 
 ```bash
 gh pr checks PR_NUMBER --repo OWNER/REPO
 ```
 
 Check for:
-- All green
+- All green ✓
 - Lint failures only
 - Test failures
 - No CI yet
 
-## Step 6: Review (Use Parallel Subagents)
+## Step 5: Review Threads
 
-Launch review agents for actionable PRs in parallel. Each review:
-1. What it changes (1-2 sentences)
+Review threads tell you what needs addressing:
+
+```bash
+~/.claude/skills/_shared/github-review-threads/scripts/review-threads.sh list OWNER/REPO PR_NUMBER
+```
+
+Categorize each thread:
+- **OUTDATED + FIXED** → resolve
+- **ACTIVE + FIXED** → resolve
+- **ACTIVE + VALID** → fix code or reply
+- **NOISE** → resolve
+
+## Step 6: Code Review
+
+Launch review agents in parallel for actionable PRs. Each review:
+1. What it changes
 2. Size/scope (files, lines)
 3. Risk (isolated vs cross-cutting)
 4. Code quality
-5. Review feedback status
-6. Verdict: safe to merge / needs fixes / needs review / close
+5. Verdict: safe to merge / needs fixes / needs review / close
 
 ## Step 7: Fix
 
 For PRs needing fixes:
 - **Lint failures** → run linter + formatter
-- **Minor bugs** → fix and push
-- **Conflicts** → merge default branch, resolve
-- **AI pre-merge check failures** → address `❌ Error` rows first
+- **Conflicts** → merge main, resolve, push
+- **CI failures** → address specific failures
 
 ## Step 8: Present Results
 
-| PR | Title | CI | AI Review | Verdict |
-|----|-------|----|-----------|---------|
+| PR | Title | CI | Threads | Verdict |
+|----|-------|----|-----|---------|
 
-**Merge-ready only when:**
+Merge-ready when:
 1. CI is green
-2. AI review bot has reviewed
+2. 0 unresolved threads
 3. Your code review passes
 
-Then **ask the user** which PRs to merge.
+Then **ask user** which to merge.
 
 ## Step 9: Merge (Only With Permission)
 
@@ -141,26 +139,10 @@ Then **ask the user** which PRs to merge.
 gh pr merge PR_NUMBER --repo OWNER/REPO --squash
 ```
 
-## Step 10: Thread Resolution
-
-Before marking PR merge-ready, resolve all threads:
-
-```bash
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-"$SKILL_DIR/../_shared/github-review-threads/scripts/review-threads.sh" unresolved OWNER/REPO PR_NUMBER
-```
-
-Categorize each thread:
-- **OUTDATED + FIXED** → resolve
-- **ACTIVE + FIXED** → resolve
-- **ACTIVE + VALID** → fix code or reply explaining deferral
-- **NOISE** → resolve
-
-Target: **0 unresolved threads** before merge.
-
 ## Guidelines
 
-- **Use semantic similarity to understand PR intent.** If a PR strongly matches an issue's similar_issues, it likely addresses it.
-- **Find related PRs** that touch the same subsystem — flag potential conflicts.
+- **Use caching.** Second run costs only 1 point.
+- **Archive is automatic.** Merged/closed PRs move to `prs-merged/`, `prs-closed/`.
+- **REST is free.** Comments, reviews, diffs use REST - don't avoid fetching them.
+- **GraphQL costs points.** `gh pr checks` = 2pts, threads = 1pt. Fetch wisely.
 - **Never merge without explicit user permission.**
-- **Read AI review comment bodies in full** — not just thread resolution status.
