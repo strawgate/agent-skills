@@ -10,7 +10,7 @@ Audit all open GitHub issues against recently closed PRs, merged PRs, recent com
 
 ## Scripts
 
-- [Fetch repo issue/PR data](./scripts/fetch-repo-data.sh)
+- [Fetch repo issue/PR data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
 
 ## Step 0: Determine the Target Repo
 
@@ -45,7 +45,7 @@ Use the shared fetch script so stale-issue audits and work-unit planning read th
 same normalized artifact set:
 
 ```bash
-./scripts/fetch-repo-data.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh OWNER/REPO
 ```
 
 This writes to:

@@ -22,7 +22,7 @@ The skill should:
 
 ## Scripts
 
-- [Wait for PR activity](./scripts/wait-for-pr-activity.sh)
+- [Wait for PR activity](${CLAUDE_SKILL_DIR}/scripts/wait-for-pr-activity.sh)
 - Reuses [Fetch PR context bundle](../pr-triage/scripts/fetch-pr-context.sh)
 
 ## Inputs
@@ -49,7 +49,7 @@ FOLLOW_PR_NONBLOCKING_CHECKS='Code Coverage,Kani proofs,Some Other Check'
 ### Step 1: Start or resume the watcher
 
 ```bash
-./scripts/wait-for-pr-activity.sh OWNER/REPO PR_NUMBER --interval 300
+${CLAUDE_SKILL_DIR}/scripts/wait-for-pr-activity.sh OWNER/REPO PR_NUMBER --interval 300
 ```
 
 The script writes state under:

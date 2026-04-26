@@ -25,8 +25,8 @@ This skill is intentionally generic:
 
 ## Scripts
 
-- [Collect cloud artifacts](./scripts/collect-cloud-artifacts.py)
-- [Wait until a wave is ready for fan-in](./scripts/wait-for-fanin.py)
+- [Collect cloud artifacts](${CLAUDE_SKILL_DIR}/scripts/collect-cloud-artifacts.py)
+- [Wait until a wave is ready for fan-in](${CLAUDE_SKILL_DIR}/scripts/wait-for-fanin.py)
 
 ## Workflow
 

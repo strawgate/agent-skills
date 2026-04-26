@@ -32,9 +32,9 @@ That means:
 
 ## Scripts
 
-- [Fetch repo issue/PR data](./scripts/fetch-repo-data.sh)
-- [Summarize existing meta structure](./scripts/summarize-meta-structure.sh)
-- [Summarize existing work-unit structure](./scripts/summarize-work-unit-structure.sh)
+- [Fetch repo issue/PR data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
+- [Summarize existing meta structure](${CLAUDE_SKILL_DIR}/scripts/summarize-meta-structure.sh)
+- [Summarize existing work-unit structure](${CLAUDE_SKILL_DIR}/scripts/summarize-work-unit-structure.sh)
 
 `fetch-repo-data.sh` delegates to the shared inventory script at
 `../_shared/github-repo-inventory/scripts/fetch-repo-data.sh`.
@@ -79,9 +79,9 @@ If an issue audit or planning doc exists, read it first. Prefer prior audit outp
 Run the shared data fetch and summary scripts:
 
 ```bash
-./scripts/fetch-repo-data.sh OWNER/REPO
-./scripts/summarize-meta-structure.sh OWNER/REPO
-./scripts/summarize-work-unit-structure.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/scripts/summarize-meta-structure.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/scripts/summarize-work-unit-structure.sh OWNER/REPO
 ```
 
 This gives you:

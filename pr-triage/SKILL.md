@@ -11,10 +11,10 @@ Run through all open PRs for a repo, triage them, review code, fix issues, and p
 
 ## Scripts
 
-- [Fetch PR context bundle](./scripts/fetch-pr-context.sh)
-- [Build merge checklist](./scripts/build-merge-checklist.sh)
-- [Mark PR in progress (`:eyes:`)](./scripts/mark-pr-in-progress.sh)
-- [Unmark PR in progress (remove your `:eyes:`)](./scripts/unmark-pr-in-progress.sh)
+- [Fetch PR context bundle](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context.sh)
+- [Build merge checklist](${CLAUDE_SKILL_DIR}/scripts/build-merge-checklist.sh)
+- [Mark PR in progress (`:eyes:`)](${CLAUDE_SKILL_DIR}/scripts/mark-pr-in-progress.sh)
+- [Unmark PR in progress (remove your `:eyes:`)](${CLAUDE_SKILL_DIR}/scripts/unmark-pr-in-progress.sh)
 
 Note: `fetch-pr-context.sh` now delegates to the shared user script at
 `../_shared/github-pr-context/scripts/fetch-pr-context.sh`
@@ -62,7 +62,7 @@ Apply any filter from `$ARGUMENTS` (e.g., "skip #221", "copilot only").
 Before doing deeper review on any actionable PR, fetch the full PR context bundle:
 
 ```bash
-./scripts/fetch-pr-context.sh OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context.sh OWNER/REPO PR_NUMBER
 ```
 
 This writes a pre-fetched review bundle under `/tmp/pr-context/OWNER__REPO/pr-PR_NUMBER/` including:
@@ -102,7 +102,7 @@ Note which PRs have: all green, lint failures only, test failures, or no CI yet.
 When you start actively working on a PR, mark it so other agents know it is claimed:
 
 ```bash
-./scripts/mark-pr-in-progress.sh OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/scripts/mark-pr-in-progress.sh OWNER/REPO PR_NUMBER
 ```
 
 If another agent already marked it, the command exits non-zero by default. Use
@@ -111,7 +111,7 @@ If another agent already marked it, the command exits non-zero by default. Use
 When you finish that PR (or intentionally stop working on it), unmark it:
 
 ```bash
-./scripts/unmark-pr-in-progress.sh OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/scripts/unmark-pr-in-progress.sh OWNER/REPO PR_NUMBER
 ```
 
 Guidance:

@@ -25,7 +25,7 @@ This skill is intentionally generic:
 
 ## Scripts
 
-- [Launch cloud fanout](./scripts/launch-cloud-fanout.py)
+- [Launch cloud fanout](${CLAUDE_SKILL_DIR}/scripts/launch-cloud-fanout.py)
 
 ## Default strategy
 
