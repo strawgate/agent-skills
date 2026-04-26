@@ -1,7 +1,7 @@
 ---
 name: pr-triage
 description: Triage, review, fix, and manage open PRs for a GitHub repo. Use when the user says "loop through PRs", "review PRs", "check PRs", "triage PRs", or "pr triage". NEVER merges without explicit user permission.
-argument-hint: [owner/repo and optional filter e.g. "strawgate/memagent", "strawgate/memagent skip #221"]
+argument-hint: [owner/repo e.g. "strawgate/memagent"]
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent, WebSearch, WebFetch
 ---
 
@@ -15,134 +15,111 @@ Triage all open PRs, review code, fix issues, and prepare for merge.
 
 ## Scripts
 
-- [Fetch PR triage overview](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-triage.sh)
-- [Deep fetch for specific PR](${CLAUDE_SKILL_DIR}/scripts/fetch-pr-context-deep.sh)
-
-## Step 0: Determine the Target Repo
+Uses Python CLI via `uv run`:
 
 ```bash
-gh repo view --json nameWithOwner -q .nameWithOwner
+cd ~/.claude/skills/_shared/github-pr-triage
+
+# Overview: all PRs in one table (~1 GraphQL point)
+uv run pr-triage overview OWNER/REPO
+
+# Per-PR details: CI, threads, comments, reviews, diff (~4 GraphQL points)
+uv run pr-triage details OWNER/REPO PR_NUMBER
+
+# Context bundle for follow-through
+uv run pr-triage context OWNER/REPO PR_NUMBER
 ```
 
 ## Step 1: Fetch Overview
 
 ```bash
-~/.claude/skills/_shared/github-pr-triage/scripts/fetch-pr-triage.sh OWNER/REPO
+cd ~/.claude/skills/_shared/github-pr-triage
+uv run pr-triage overview OWNER/REPO
 ```
 
-This creates `/tmp/pr-triage/OWNER__REPO/`:
-```
-├── open-prs.json           # Raw listing
-├── prs-overview.txt       # Quick triage view
-├── prs/                   # Active open PRs
-│   └── 2664/
-│       ├── pr.json         # PR metadata
-│       ├── checks.json     # CI checks
-│       ├── metadata.json   # Quick stats (mergeable, CI failures)
-│       ├── comments.json   # Discussion (REST, free)
-│       ├── reviews.json   # Reviews (REST, free)
-│       └── threads.json   # Review threads (GraphQL, 1pt)
-├── prs-merged/            # Archived after merge
-└── prs-closed/          # Archived after close
-```
+This shows a table with all open PRs (CI status, threads, comments, +L/-L).
 
-**GraphQL cost:** ~16 points for 5 PRs fresh, 1 point cached.
+**GraphQL cost:** ~1 point for all PRs (includes CI status, thread counts, comment counts)
 
-## Step 2: Quick Triage with `prs-overview.txt`
+## Step 2: Review the Table
 
 ```
-# | Draft | Mergeable | CI | Files | Title
----
-2664 | false | CONFLICTING | ✓ | 54 | feat: enforce indexing_slicing...
-2679 | false | MERGEABLE | ✗3 | 2 | fix(loki): normalize endpoint...
+┏━━━━━━┳━━━━━━━━━━━┳━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━┳━━━━━━━━━━━┓
+┃ #    ┃ Mergeable ┃ CI ┃ Threads ┃ Commen… ┃ +L   ┃ Title     ┃
+┡━━━━━━╇━━━━━━━━━━━╇━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━╇━━━━━━━━━━━┩
+│ 2664 │ MERGEABLE │ ✗  │ ✗50    │ 9     │ +525 │ feat: enfor…
+│ 2667 │ MERGEABLE │ ✗  │ ✗12    │ 4     │ +331 │ refactor:…
 ```
 
 **Priority order:**
 1. `CONFLICTING` - must resolve conflicts
-2. `CI: ✗N` - N failing checks
-3. `Draft` - needs marking ready
-4. Large PRs (54 files) - review carefully
+2. `CI: ✗` - failing checks
+3. `Threads: ✗N` - N unresolved review threads
+4. Large PRs - review carefully
 
-## Step 3: Deep Dive for Problematic PRs
+## Step 3: Fetch Per-PR Details
 
-For PRs with CI failures, conflicts, or needing review:
+For PRs needing work:
 
 ```bash
-~/.claude/skills/_shared/github-pr-triage/scripts/fetch-pr-context-deep.sh OWNER/REPO PR_NUMBER
+uv run pr-triage details OWNER/REPO PR_NUMBER
 ```
 
-This fetches:
+This fetches (REST, free):
+- `comments.json` - PR comments
+- `reviews.json` - PR reviews
 - `pr.diff` - full unified diff
-- `files.json` - changed files
-- `diffs/<file>.diff` - per-file patches
-- `threads.json` - review threads with resolved/outdated state
+- `files.json` - file list with patches
+- `diffs/<path>/<file>.diff` - per-file patches
 
-## Step 4: CI and Review Check
+GraphQL (paid):
+- `pr.json` - full PR metadata
+- `threads.json` - review threads with full body
+- CI status (from statusCheckRollup)
 
-For each PR needing work:
+**GraphQL cost:** ~4 points per PR
 
-```bash
-gh pr checks PR_NUMBER --repo OWNER/REPO
-```
+## Step 4: Address Feedback
 
-Check for:
-- All green ✓
-- Lint failures only
-- Test failures
-- No CI yet
-
-## Step 5: Review Threads
-
-Review threads tell you what needs addressing:
-
-```bash
-~/.claude/skills/_shared/github-review-threads/scripts/review-threads.sh list OWNER/REPO PR_NUMBER
-```
-
-Categorize each thread:
-- **OUTDATED + FIXED** → resolve
-- **ACTIVE + FIXED** → resolve
-- **ACTIVE + VALID** → fix code or reply
-- **NOISE** → resolve
-
-## Step 6: Code Review
-
-Launch review agents in parallel for actionable PRs. Each review:
-1. What it changes
-2. Size/scope (files, lines)
-3. Risk (isolated vs cross-cutting)
-4. Code quality
-5. Verdict: safe to merge / needs fixes / needs review / close
-
-## Step 7: Fix
-
-For PRs needing fixes:
+Common fixes:
 - **Lint failures** → run linter + formatter
 - **Conflicts** → merge main, resolve, push
 - **CI failures** → address specific failures
+- **Review threads** → fix code or reply
 
-## Step 8: Present Results
-
-| PR | Title | CI | Threads | Verdict |
-|----|-------|----|-----|---------|
+## Step 5: Present Results
 
 Merge-ready when:
 1. CI is green
 2. 0 unresolved threads
-3. Your code review passes
+3. Code review passes
 
 Then **ask user** which to merge.
 
-## Step 9: Merge (Only With Permission)
-
-```bash
-gh pr merge PR_NUMBER --repo OWNER/REPO --squash
-```
-
 ## Guidelines
 
-- **Use caching.** Second run costs only 1 point.
-- **Archive is automatic.** Merged/closed PRs move to `prs-merged/`, `prs-closed/`.
-- **REST is free.** Comments, reviews, diffs use REST - don't avoid fetching them.
-- **GraphQL costs points.** `gh pr checks` = 2pts, threads = 1pt. Fetch wisely.
-- **Never merge without explicit user permission.**
+- **Overview is cheap** - 1pt for all PRs with rich info
+- **Details are expensive** - only fetch what you need
+- **REST is free** - comments, reviews, diffs don't cost points
+- **Archive is automatic** - merged/closed PRs move to `prs-merged/`, `prs-closed/`
+- **Never merge without explicit user permission**
+
+## Data Structure
+
+```
+/tmp/pr-triage/OWNER__REPO/
+├── open-prs.json          # Raw GraphQL response
+├── prs-overview.txt        # Markdown triage table
+├── prs/                   # Per-PR folders (populated by details)
+│   └── 2664/
+│       ├── pr.json         # Full PR metadata
+│       ├── metadata.json   # Quick stats (mergeable, CI, threads)
+│       ├── checks.json     # CI checks (empty - individual checks via gh pr checks)
+│       ├── threads.json    # Review threads
+│       ├── comments.json   # PR comments (REST, free)
+│       ├── reviews.json    # PR reviews (REST, free)
+│       ├── pr.diff         # Full diff (REST, free)
+│       ├── files.json      # File list (REST, free)
+│       └── diffs/          # Per-file patches (REST, free)
+└── prs-closed/            # Archived closed PRs
+```
