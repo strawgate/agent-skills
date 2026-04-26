@@ -1,13 +1,13 @@
 ---
 name: assign-copilot
-description: Assign GitHub issues to Copilot coding agent with Claude Opus 4.6 and a custom agent. Use when the user says "assign to copilot", "give to copilot", "copilot this issue", or "assign-copilot".
+description: Assign GitHub issues to Copilot coding agent with Codex Opus 4.6 and a custom agent. Use when the user says "assign to copilot", "give to copilot", "copilot this issue", or "assign-copilot".
 argument-hint: [owner/repo #issue1 #issue2 ... or just issue numbers if repo is obvious]
 allowed-tools: Bash
 ---
 
 # Assign Issues to Copilot
 
-Assign one or more GitHub issues to the Copilot coding agent using Claude Opus 4.6 and the repo's custom agent (if one exists).
+Assign one or more GitHub issues to the Copilot coding agent using Codex Opus 4.6 and the repo's custom agent (if one exists).
 
 ## Step 0: Determine Repo and Issues
 
@@ -70,7 +70,7 @@ gh api graphql \
       agentAssignment: {
         targetRepositoryId: "REPO_ID"
         customAgent: "AGENT_NAME"
-        model: "claude-opus-4.6"
+        model: "Codex-opus-4.6"
       }
     }) {
       issue {
@@ -85,7 +85,7 @@ gh api graphql \
 - `issues_copilot_assignment_api_support`
 - `coding_agent_model_selection`
 
-**Model** — defaults to `claude-opus-4.6`. If the user specifies a different model, use that instead.
+**Model** — defaults to `Codex-opus-4.6`. If the user specifies a different model, use that instead.
 
 ## Step 5: Confirm
 
@@ -93,10 +93,10 @@ Print a summary:
 
 | Issue | Title | Agent | Model |
 |-------|-------|-------|-------|
-| #242 | Add metrics | issue-worker | claude-opus-4.6 |
+| #242 | Add metrics | issue-worker | Codex-opus-4.6 |
 
 ## Notes
 
-- The `model` field is a string, not an enum (e.g., `"claude-opus-4.6"`, `"gpt-4o"`, `"claude-sonnet-4.6"`)
+- The `model` field is a string, not an enum (e.g., `"Codex-opus-4.6"`, `"gpt-4o"`, `"Codex-sonnet-4.6"`)
 - If the repo has no custom agents, omit the `customAgent` field entirely
 - The REST API (`gh api --method PATCH /repos/OWNER/REPO/issues/NUM -f assignees[]=copilot-swe-agent[bot]`) works for simple assignment but does NOT support model or custom agent selection

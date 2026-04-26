@@ -39,6 +39,40 @@ Unacceptable (do NOT merge):
 - "looks good" (feedback, not a merge instruction)
 - "safe to merge" in YOUR OWN assessment (your recommendation, not user permission)
 
+## Critical Rule: NEVER Close PRs Without Good Reason
+
+**Do not close PRs just because they have issues — fix them instead.** Closing is appropriate when the PR itself is a bad idea, not just when it has bugs or needs work.
+
+Close a PR when:
+- The approach is fundamentally wrong and the fix would require a full rewrite
+- The PR duplicates already-merged work
+- The PR implements something the project explicitly doesn't want
+- The PR author requests closure
+
+Leave feedback when closing — explain clearly *why* the approach is bad and what the right approach would be, so the author understands and can open a better PR if appropriate.
+
+Do NOT close a PR because:
+- It has lint failures (fix them)
+- It has merge conflicts (resolve them)
+- It has review feedback (address it)
+- Tests are failing (fix them)
+- It needs a different implementation strategy (discuss in comments, then fix)
+
+## PR Triage = Fix and Iterate
+
+When you encounter a PR with issues (failing CI, review feedback, conflicts), the job is to **work through those issues until the PR meets the standard**, not to evaluate and categorize.
+
+For each PR with issues:
+1. Understand what is failing and why
+2. Check out the branch (use `git worktree` for isolation)
+3. Make the necessary fixes
+4. Push the fixes
+5. Resolve addressed review threads
+6. Re-check CI and review state
+7. Repeat until the PR is merge-ready
+
+**A PR is not "done" until it passes CI, has no unresolved blocking threads, and is approved.**
+
 ## Phase 1: Inventory
 
 ```bash

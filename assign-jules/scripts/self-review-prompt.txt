@@ -1,4 +1,10 @@
-Before submitting, do a thorough self-review of everything you changed. Check each category and report what you find:
+Before submitting, do a thorough self-review of everything you changed. Assume you only had the default-branch repo plus the issue and prompt, and verify that your PR is still correct against the latest default branch before calling it ready.
+
+- Fetch or otherwise refresh against the latest default branch first if there has been any delay, review feedback, or merge-base drift.
+- Re-read the issue and the exact review feedback/comments/check failures before deciding you are done.
+- Trim unrelated changes, helper scripts, or scaffolding before finalizing.
+
+Check each category and report what you find:
 
 ## 1. Does this actually fix the problem?
 - Re-read the original issue description
@@ -32,4 +38,9 @@ Before submitting, do a thorough self-review of everything you changed. Check ea
 - Run: cargo fmt --all --check
 - Fix anything that fails before submitting.
 
-If you find ANY issues in the above checks, fix them now and push an update. Only submit when all checks pass.
+## 7. PR readiness
+- Does the PR body accurately describe the actual code you are shipping now?
+- Are any remaining findings just speculative noise rather than confirmed issues? If so, remove them from the main claim and note them separately if needed.
+- Is the diff still tightly scoped to the issue?
+
+If you find ANY issues in the above checks, fix them now and push an update. Only submit when all checks pass and the PR is genuinely production-ready.
