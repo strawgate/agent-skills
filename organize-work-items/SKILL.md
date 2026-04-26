@@ -32,12 +32,10 @@ That means:
 
 ## Scripts
 
-- [Fetch repo issue/PR data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
-- [Summarize existing meta structure](${CLAUDE_SKILL_DIR}/scripts/summarize-meta-structure.sh)
-- [Summarize existing work-unit structure](${CLAUDE_SKILL_DIR}/scripts/summarize-work-unit-structure.sh)
+- [Fetch and index repo data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
 
-`fetch-repo-data.sh` delegates to the shared inventory script at
-`../_shared/github-repo-inventory/scripts/fetch-repo-data.sh`.
+`fetch-repo-data.sh` delegates to the shared index script at
+`../_shared/github-repo-inventory/scripts/index-repo.sh`.
 
 ## Step 0: Determine Repo and Scope
 
@@ -64,72 +62,39 @@ Read the repo docs before you group work. Grouping by label alone produces bad w
 
 Read these files if they exist:
 
-- `README.md`
-- `DEVELOPING.md` / `CONTRIBUTING.md`
-- `AGENTS.md` / `AGENTS.md`
-- `docs/ARCHITECTURE.md` or any architecture doc
-- `ROADMAP.md`
-- `docs/**/*.md`
-- `dev-docs/**/*.md`
+- `README.md`, `DEVELOPING.md`, `CONTRIBUTING.md`, `AGENTS.md`
+- `docs/ARCHITECTURE.md`, `ROADMAP.md`
+- `docs/**/*.md`, `dev-docs/**/*.md`
 
-If an issue audit or planning doc exists, read it first. Prefer prior audit output over re-inventing the repo structure from scratch.
+If an issue audit or planning doc exists, read it first.
 
-## Step 2: Reuse Existing Planning Data
-
-Run the shared data fetch and summary scripts:
+## Step 2: Fetch and Index Repo Data
 
 ```bash
 ${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh OWNER/REPO
-${CLAUDE_SKILL_DIR}/scripts/summarize-meta-structure.sh OWNER/REPO
-${CLAUDE_SKILL_DIR}/scripts/summarize-work-unit-structure.sh OWNER/REPO
 ```
 
-This gives you:
+This creates in `/tmp/issue-organizer/OWNER__REPO/`:
 
-- open issue inventory
-- open and merged PR inventory
-- existing metas / phases / epics
-- existing work units
-- orphan issues not linked from a work unit yet
-- grep-friendly title indexes and one-file-per-record dumps for issues and PRs
+```
+├── issues/                        # Consolidated folders
+│   └── 02561/issue.txt         # Full issue with similar_*
+├── prs/
+│   └── 00937/pr.txt
+├── issues-open.txt                # Minimal index: # | date | title
+├── issues-closed-last-100.txt   # Recent closed issues
+├── prs-merged-last-100.txt      # Recent merged PRs
+└── prs-open.txt
+```
 
-Read these outputs before proposing any changes:
+## Step 3: Use Semantic Similarity for Batching
 
-- `/tmp/issue-organizer/OWNER__REPO/summary.txt`
-- `/tmp/issue-organizer/OWNER__REPO/meta-summary.md`
-- `/tmp/issue-organizer/OWNER__REPO/work-unit-summary.md`
-- `/tmp/issue-organizer/OWNER__REPO/issue-titles.txt`
-- `/tmp/issue-organizer/OWNER__REPO/pr-titles.txt`
-- `/tmp/issue-organizer/OWNER__REPO/issues/open/*.txt`
-- `/tmp/issue-organizer/OWNER__REPO/prs/open/*.txt`
-- `/tmp/issue-organizer/OWNER__REPO/prs/merged/*.txt`
-- `/tmp/issue-organizer/OWNER__REPO/prs/closed/*.txt`
+Each `issue.txt` includes `similar_issues` - use this to find related issues that should be batched together.
 
-Start with the title indexes to shortlist candidates, then grep the per-record
-files when you need to cluster by subsystem, wording, or linked work.
-
-## Step 3: Apply the Work-Unit Lens
-
-Unlike normal meta planning, work units are optimized for execution, not taxonomy.
-
-Primary optimization target:
-
-**Accomplish as much work as possible with as little repo footprint and merge-conflict risk as possible.**
-
-That means you are allowed to group together:
-
-- several bugs in the same sink or subsystem
-- a phase slice plus an adjacent bug if they touch the same file cluster
-- docs fixes plus tiny code alignment changes in the same area
-- several feature requests that are all part of the same narrow implementation seam
-
-That also means you should split apart work that is thematically related but operationally bad to batch together.
-
-Examples:
-
-- Split one large file-input redesign into separate work units if one piece is parser behavior and another is checkpoint storage.
-- Do not batch two architecture decisions together just because both are labeled `refactor`.
-- Do not mix a repo-wide lint migration with a local correctness fix unless the exact same files are being touched anyway.
+**Grouping strategy:**
+1. Read `issues-open.txt` to see all open issues
+2. For each candidate work unit, read the `similar_issues` from each member issue
+3. Issues with high mutual similarity scores are good batching candidates
 
 ## Step 4: What Belongs in a Work Unit
 
@@ -150,88 +115,17 @@ Target shape:
 - one narrow slice of a phase, or
 - one file-cluster batch with mixed issue types
 
-Good work units usually touch one of these shapes:
-
-- one top-level crate/package
-- one hot file plus its tests
-- one API surface and its docs
-- one migration slice with explicit non-goals
-
 ## Step 5: What Does NOT Belong in a Work Unit
 
-Do not create a work unit when the work requires high discretion.
-
-Keep these out unless the user explicitly wants a design-heavy batch:
+Do not create a work unit when the work requires high discretion:
 
 - unresolved architecture choices
 - research spikes
 - cross-cutting repo-wide cleanups
 - big prerequisite refactors with unclear stop points
 - items whose success criteria are still debated
-- anything likely to trigger conflicts across several active branches
 
-Those should stay as normal issues, epics, or design tasks until they can be sliced more narrowly.
-
-## Step 6: Distinguish Work Units from Metas and Phases
-
-Use this decision rule:
-
-- If the issue exists to explain the problem space, it is a `meta`, `phase`, or `epic`.
-- If the issue exists to schedule one merge-safe agent run, it is a `work-unit`.
-
-Work units can point to:
-
-- leaf issues
-- phase issues
-- meta issues
-
-But they should only reference the exact slice being scheduled now.
-
-Do not duplicate the whole parent issue body into the work unit. Link by reference and restate only the scoped batch.
-
-## Step 7: Produce Opinionated Output
-
-Your output must be operational.
-
-Use a richer structure in chat than in the final GitHub issue body. The planning output should justify the grouping. The final work-item issue should stay compact and execution-oriented.
-
-### Required sections
-
-#### Proposed work units
-
-For each proposed work unit, provide:
-
-- title
-- why this is one agent run
-- repo footprint
-- linked issues
-- linked metas/phases if any
-- why it is low-discretion
-- why it is merge-safe relative to neighboring work
-- exit criteria
-
-#### Existing work units to revise
-
-Call out work units that are:
-
-- too broad
-- too abstract
-- overlapping another work unit
-- missing the actual leaf issues
-- stale because the referenced work already landed
-- fighting the repo shape by spanning too many subsystems
-
-#### Issues or phases that still need a work unit
-
-List important work that is currently unscheduled even though it is now batchable.
-
-#### Items that should stay out of work units
-
-Explicitly identify design-heavy or cross-cutting work that should remain as normal issues or phases.
-
-## Step 8: Use the Standard Work-Unit Template
-
-This is the **final issue body** template. Keep it compact and biased toward execution.
+## Step 6: Use the Standard Work-Unit Template
 
 ```markdown
 work-unit: <subsystem> — <batch name>
@@ -244,7 +138,6 @@ work-unit: <subsystem> — <batch name>
 
 - `path/to/file_or_dir`
 - `path/to/tests`
-- `path/to/docs`
 
 ## In scope
 
@@ -252,10 +145,6 @@ work-unit: <subsystem> — <batch name>
 |---|------|--------------|
 | #123 | bug | same handler and tests |
 | #124 | docs | same API surface |
-
-## Related metas / phases
-
-<Only include this section if the work item is slicing an existing meta or phase.>
 
 ## Non-goals
 
@@ -266,71 +155,24 @@ work-unit: <subsystem> — <batch name>
 - [ ] listed issues resolved or updated
 - [ ] regression tests added or updated
 - [ ] docs and implementation aligned for this slice
-- [ ] follow-on work, if any, linked explicitly
 ```
 
-## Step 9: Maintenance Rules
-
-When maintaining work-unit structure:
-
-- Each open leaf issue should usually belong to zero or one open work unit.
-- Allow multiple work-unit references only when one is an umbrella phase scheduler and the body clearly explains the boundary.
-- If a work unit grows past about 8 leaf issues, split it.
-- If a work unit spans more than 2-3 adjacent top-level areas, split it.
-- If a work unit body does not mention repo footprint, tighten it.
-- If a work unit has no explicit non-goals, it is probably too fuzzy.
-- If a referenced issue is closed, remove it from the work unit or close the work unit.
-- If a phase issue is too large for one agent run, create multiple work units that reference different slices of that phase.
-- Prefer revising a stale work unit over creating a near-duplicate.
-
-## Step 10: Naming and Labeling Rules
-
-Use the `work-unit` label on all work units.
-
-Title format:
-
-```text
-work-unit: <repo area> — <execution-oriented batch name>
-```
-
-Good titles:
-
-- `work-unit: elasticsearch sink — small correctness and retry fixes`
-- `work-unit: pipeline.rs — phase 5c cleanup plus begin_batch bug`
-- `work-unit: docs/config — 10 runtime-alignment fixes`
-
-Bad titles:
-
-- `meta: polish`
-- `work-unit: miscellaneous`
-- `phase 5c and some other stuff`
-
-Prefer repo-area-first titles because the point is scheduling by footprint, not storytelling.
-
-## Step 11: Present Ready-to-Run Commands
-
-Provide commands, but do not create or edit issues unless the user explicitly asks.
-
-Examples:
+## Step 7: Present Ready-to-Run Commands
 
 ```bash
 gh issue create --repo OWNER/REPO \
-  --title "work-unit: diagnostics.rs — counter fixes and route enforcement" \
+  --title "work-unit: elasticsearch sink — small correctness fixes" \
   --label work-unit \
   --label copilot \
-  --body-file /tmp/work-unit-diagnostics.md
-
-gh issue edit 123 --repo OWNER/REPO --body-file /tmp/work-unit-123-updated.md
-
-gh issue comment 712 --repo OWNER/REPO --body "Scheduled in work unit #123."
+  --body-file /tmp/work-unit.md
 ```
 
 ## Guidelines
 
 - Audit first, schedule second.
 - Optimize for merge-safe repo footprint before thematic purity.
+- Use `similar_issues` to find batching candidates - high mutual similarity = good batch.
 - Prefer by-reference work units over duplicating issue content.
 - Use metas/phases for explanation and sequencing; use work units for execution.
-- It is acceptable for a work unit to mix bug, docs, feature, and refactor items if the code footprint is the same and the discretion level is low.
-- It is not acceptable for a work unit to become a second epic.
+- It is acceptable for a work unit to mix bug, docs, feature, and refactor items if the code footprint is the same.
 - If in doubt, make the work unit smaller and more local.

@@ -133,21 +133,25 @@ fetch_all() {
   mv "$tmp" "$output"
 }
 
-fetch_all issues open '' "$out_dir/open-issues.json"
-fetch_all pulls open 'number, title, body, state, draft, merged_at, created_at, updated_at, head: .head.ref, base: .base.ref, labels, html_url' "$out_dir/open-prs.json"
-fetch_all pulls closed 'number, title, body, state, draft, merged_at, created_at, updated_at, head: .head.ref, base: .base.ref, labels, html_url' "$out_dir/all-closed-prs.json"
+mkdir -p "$out_dir/raw"
 
-jq '[.[] | select(.merged_at != null)]' "$out_dir/all-closed-prs.json" > "$out_dir/merged-prs.json"
-jq '[.[] | select(.merged_at == null)]' "$out_dir/all-closed-prs.json" > "$out_dir/closed-prs.json"
-rm -f "$out_dir/all-closed-prs.json"
+fetch_all issues open '' "$out_dir/raw/open-issues.json"
+fetch_all issues closed '' "$out_dir/raw/closed-issues.json"
+fetch_all pulls open 'number, title, body, state, draft, merged_at, created_at, updated_at, head: .head.ref, base: .base.ref, labels, html_url' "$out_dir/raw/open-prs.json"
+fetch_all pulls closed 'number, title, body, state, draft, merged_at, created_at, updated_at, head: .head.ref, base: .base.ref, labels, html_url' "$out_dir/raw/all-closed-prs.json"
+
+jq '[.[] | select(.merged_at != null)]' "$out_dir/raw/all-closed-prs.json" > "$out_dir/raw/merged-prs.json"
+jq '[.[] | select(.merged_at == null)]' "$out_dir/raw/all-closed-prs.json" > "$out_dir/raw/closed-prs.json"
+rm -f "$out_dir/raw/all-closed-prs.json"
 
 rm -rf "$out_dir/issues" "$out_dir/prs"
-mkdir -p "$out_dir/issues/open" "$out_dir/prs/open" "$out_dir/prs/merged" "$out_dir/prs/closed"
+mkdir -p "$out_dir/issues/open" "$out_dir/issues/closed" "$out_dir/prs/open" "$out_dir/prs/merged" "$out_dir/prs/closed"
 
-write_record_files "$out_dir/open-issues.json" issue open "$out_dir/issues/open" "$out_dir/issue-titles.txt"
-write_record_files "$out_dir/open-prs.json" pr open "$out_dir/prs/open" "$out_dir/pr-titles-open.txt"
-write_record_files "$out_dir/merged-prs.json" pr merged "$out_dir/prs/merged" "$out_dir/pr-titles-merged.txt"
-write_record_files "$out_dir/closed-prs.json" pr closed "$out_dir/prs/closed" "$out_dir/pr-titles-closed.txt"
+write_record_files "$out_dir/raw/open-issues.json" issue open "$out_dir/issues/open" "$out_dir/issue-titles.txt"
+write_record_files "$out_dir/raw/closed-issues.json" issue closed "$out_dir/issues/closed" /dev/null
+write_record_files "$out_dir/raw/open-prs.json" pr open "$out_dir/prs/open" "$out_dir/pr-titles-open.txt"
+write_record_files "$out_dir/raw/merged-prs.json" pr merged "$out_dir/prs/merged" "$out_dir/pr-titles-merged.txt"
+write_record_files "$out_dir/raw/closed-prs.json" pr closed "$out_dir/prs/closed" "$out_dir/pr-titles-closed.txt"
 
 cat \
   "$out_dir/pr-titles-open.txt" \
@@ -161,13 +165,15 @@ gh label list --repo "$repo" --limit 500 --json name,description,color > "$out_d
 {
   echo "repo=$repo"
   echo "out_dir=$out_dir"
-  echo "open_issues=$(jq length "$out_dir/open-issues.json")"
-  echo "open_prs=$(jq length "$out_dir/open-prs.json")"
-  echo "merged_prs=$(jq length "$out_dir/merged-prs.json")"
-  echo "closed_unmerged_prs=$(jq length "$out_dir/closed-prs.json")"
+  echo "open_issues=$(jq length "$out_dir/raw/open-issues.json")"
+  echo "closed_issues=$(jq length "$out_dir/raw/closed-issues.json")"
+  echo "open_prs=$(jq length "$out_dir/raw/open-prs.json")"
+  echo "merged_prs=$(jq length "$out_dir/raw/merged-prs.json")"
+  echo "closed_unmerged_prs=$(jq length "$out_dir/raw/closed-prs.json")"
   echo "issue_titles=$out_dir/issue-titles.txt"
   echo "pr_titles=$out_dir/pr-titles.txt"
   echo "issue_files=$out_dir/issues/open"
+  echo "issue_files_closed=$out_dir/issues/closed"
   echo "pr_files_open=$out_dir/prs/open"
   echo "pr_files_merged=$out_dir/prs/merged"
   echo "pr_files_closed=$out_dir/prs/closed"
