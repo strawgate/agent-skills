@@ -1,6 +1,6 @@
 ---
 name: kani-proof-audit
-description: Become an expert in the logfwd repository, then audit all Kani formal verification proofs. Reads project docs, understands architecture, catalogs every proof, identifies gaps, and produces an actionable audit report. Use when the user says "proof audit", "kani audit", "verify proofs", "audit proofs", or "kani-proof-audit".
+description: Audit Kani formal verification proofs for a Rust project. Reads project docs, understands architecture, catalogs every proof, identifies gaps, and produces an actionable audit report. Use when the user says "proof audit", "kani audit", "verify proofs", "audit proofs", or "kani-proof-audit". NOTE: This skill is pre-configured for the logfwd project; see template section for adapting to other projects.
 argument-hint: [optional scope e.g. "otlp.rs only", "new proofs since last audit", "focus on gaps"]
 allowed-tools: Read, Grep, Glob, Bash, Agent, WebFetch
 context: fork
@@ -10,21 +10,42 @@ effort: thorough
 
 # Kani Proof Audit
 
+> **Project-specific**: This skill is configured for the logfwd repository. For other Rust projects, use this as a template and adjust crate names, paths, and doc files accordingly.
+
 Audit all Kani formal verification proofs in the logfwd repository. Produce an expert-level report of what's proven, what's not, and what to do about it.
+
+## Template: Adapting to Other Projects
+
+To adapt this skill for a different Rust project:
+
+1. **Set crate name**: Replace `logfwd-core` and `logfwd-arrow` with your proven/verification crates
+2. **Set paths**: Replace `crates/`, `dev-docs/`, `docs/` paths with your project structure
+3. **Set doc files**: Replace `PROVEN_CORE.md`, `PROOF_AUDIT.md` with your equivalent docs
+4. **Set verification architecture**: Adjust the explanation of Kani vs proptest vs TLA+
+
+### Example project parameters:
+```
+PROJECT_NAME=my-project
+PROVEN_CRATE=my-core
+VERIFICATION_CRATE=my-arrow
+CRATES_DIR=src
+DOCS_DIR=docs
+DEV_DOCS_DIR=dev-docs
+```
 
 ## Phase 1: Become an Expert
 
 Read these docs **in full** before examining any code. Do not skip or skim.
 
 ### Required reading (in order):
-1. `README.md` — what logfwd does, performance targets
+1. `README.md` — what the project does, performance targets
 2. `DEVELOPING.md` — workspace layout, build/test/bench, hard-won lessons
 3. `AGENTS.md` — project conventions, code quality rules
 4. `docs/ARCHITECTURE.md` — data flow, scanner architecture, crate map, design constraints
 5. `dev-docs/PROVEN_CORE.md` — verification tiers (Tier 1-4), what belongs in the proven core, how to add proofs
 6. `dev-docs/PROOF_AUDIT.md` — previous audit results, known gaps, gap classification
-7. `dev-docs/DECISIONS.md` — architecture decisions (especially: no_std, FieldSink trait, Kani vs proptest split, TLA+ for liveness)
-8. `dev-docs/CRATE_RULES.md` — per-crate rules (logfwd-core must be no_std, forbid unsafe, every public fn needs proof)
+7. `dev-docs/DECISIONS.md` — architecture decisions
+8. `dev-docs/CRATE_RULES.md` — per-crate rules
 9. `docs/references/kani-verification.md` — Kani API reference: proof harnesses, kani::any(), unwind bounds, function contracts, solver selection, Bolero integration
 
 ### Understanding the verification architecture:
@@ -39,17 +60,17 @@ Read these docs **in full** before examining any code. Do not skip or skim.
 Search the entire codebase for Kani proofs:
 
 ```bash
-# Find all Kani proof functions
-grep -rn '#\[kani::proof\]' crates/ --include="*.rs"
+# Find all Kani proof functions (adjust CRATES_DIR as needed)
+grep -rn '#\[kani::proof\]' CRATES_DIR/ --include="*.rs"
 
 # Find all Kani function contracts
-grep -rn 'kani::requires\|kani::ensures\|stub_verified' crates/ --include="*.rs"
+grep -rn 'kani::requires\|kani::ensures\|stub_verified' CRATES_DIR/ --include="*.rs"
 
 # Find all cfg(kani) modules
-grep -rn '#\[cfg(kani)\]' crates/ --include="*.rs"
+grep -rn '#\[cfg(kani)\]' CRATES_DIR/ --include="*.rs"
 
 # Find all bolero harnesses (unified test/fuzz/proof)
-grep -rn 'bolero::check' crates/ --include="*.rs"
+grep -rn 'bolero::check' CRATES_DIR/ --include="*.rs"
 ```
 
 For EACH proof found, record:
@@ -63,14 +84,14 @@ For EACH proof found, record:
 
 ## Phase 3: Catalog Every Public Function
 
-For the proven core crate (`logfwd-core`), list every `pub fn` and `pub trait` method:
+For the proven core crate (e.g., `logfwd-core`), list every `pub fn` and `pub trait` method:
 
 ```bash
-# All public functions in logfwd-core
-grep -rn 'pub fn\|pub async fn' crates/logfwd-core/src/ --include="*.rs"
+# All public functions in PROVEN_CRATE (adjust path as needed)
+grep -rn 'pub fn\|pub async fn' CRATES_DIR/PROVEN_CRATE/src/ --include="*.rs"
 
 # All public trait methods
-grep -rn 'fn .*(&' crates/logfwd-core/src/ --include="*.rs" | grep -v '//'
+grep -rn 'fn .*(&' CRATES_DIR/PROVEN_CRATE/src/ --include="*.rs" | grep -v '//'
 ```
 
 Cross-reference with the proof catalog from Phase 2. Identify:

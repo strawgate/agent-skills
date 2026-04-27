@@ -184,13 +184,13 @@ maybe_refresh_context() {
   local repo="$1"
   local pr="$2"
   local context_dir="$3"
-  local script_dir pr_triage_dir
+  local script_dir gh_triage_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  pr_triage_dir="$script_dir/../../_shared/github-pr-triage"
+  gh_triage_dir="$script_dir/../../_shared/gh-triage"
 
-  if [[ -d "$pr_triage_dir" ]]; then
+  if [[ -d "$gh_triage_dir" ]]; then
     mkdir -p "$context_dir"
-    (cd "$pr_triage_dir" && uv run pr-triage context "$repo" "$pr" --output-dir "$context_dir" >/dev/null 2>&1)
+    (cd "$gh_triage_dir" && uv run gh-triage pr-context "$repo" "$pr" --output-dir "$context_dir" >/dev/null 2>&1)
   fi
 }
 
