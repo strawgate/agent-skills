@@ -10,7 +10,8 @@ Audit all open GitHub issues against recently closed PRs, merged PRs, recent com
 
 ## Scripts
 
-- [Fetch and index repo data](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/index-repo.sh)
+- [Fetch issues via gh-triage](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/pyproject.toml)
+- [Build semantic indexes](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh)
 
 ## Step 0: Determine the Target Repo
 
@@ -22,25 +23,37 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 
 If neither works, **ask the user**. Store as `OWNER/REPO`.
 
-## Step 1: Fetch and Index Repo Data
+## Step 1: Fetch Repo Data with gh-triage
 
-Run the index script to fetch data and build semantic similarity indexes:
+Use the gh-triage package to fetch issues and PRs:
 
 ```bash
-${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/index-repo.sh OWNER/REPO
+# Fetch issue overview (1 GraphQL point)
+uv run gh-triage issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+
+# Fetch PR overview (1 GraphQL point)
+uv run gh-triage prs OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+```
+
+gh-triage writes JSON directly to the specified output directory:
+- `/tmp/gh-triage/OWNER__REPO/open-issues.json`
+- `/tmp/gh-triage/OWNER__REPO/open-prs.json`
+
+## Step 2: Build Semantic Indexes
+
+Convert gh-triage JSON output to text records and build similarity indexes:
+
+```bash
+${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh OWNER/REPO
 ```
 
 This writes to `/tmp/issue-organizer/OWNER__REPO/` with this structure:
 
 ```
 OWNER__REPO/
-├── raw/                           # Raw GitHub API data
-│   ├── open-issues.json
-│   ├── closed-issues.json
-│   ├── merged-prs.json
-│   └── ...
 ├── issues/                        # Consolidated issue folders
-│   └── 02561/issue.txt          # Full issue with similar_*
+│   └── 00153/issue.txt          # Full issue with similar_*
 ├── prs/                           # Consolidated PR folders
 │   └── 00937/pr.txt
 ├── issues-open.txt                # Minimal index: # | date | title
