@@ -32,10 +32,8 @@ That means:
 
 ## Scripts
 
-- [Fetch and index repo data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
-
-`fetch-repo-data.sh` delegates to the shared index script at
-`../_shared/github-repo-inventory/scripts/index-repo.sh`.
+- [Fetch issues via gh-triage](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/pyproject.toml)
+- [Build semantic indexes](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh)
 
 ## Step 0: Determine Repo and Scope
 
@@ -71,7 +69,14 @@ If an issue audit or planning doc exists, read it first.
 ## Step 2: Fetch and Index Repo Data
 
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh OWNER/REPO
+# Fetch issue overview (1 GraphQL point)
+uv run gh-triage issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+
+# Convert gh-triage JSON to .txt records
+python3 ${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py /tmp/gh-triage/OWNER__REPO
+
+# Build semantic indexes
+bash ${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh OWNER/REPO
 ```
 
 This creates in `/tmp/issue-organizer/OWNER__REPO/`:

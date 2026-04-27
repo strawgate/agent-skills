@@ -26,10 +26,22 @@ fi
 
 ## Step 1: Determine Baseline
 
-If `$ARGUMENTS` contains a branch name or commit, use that as baseline. Common patterns:
+If `$ARGUMENTS` contains a branch name or commit, extract it:
+
+```bash
+# Extract baseline from arguments (branch, tag, or commit)
+BASELINE="${ARGUMENTS:-}"
+if [ -z "$BASELINE" ]; then
+  echo "No baseline requested — running benchmarks only"
+fi
+```
+
+Common patterns:
 - `main` / `master` — compare against default branch
 - `HEAD~1` — compare against previous commit
-- No argument — just run current benchmarks, no comparison
+- A specific commit hash
+
+If no argument is provided, skip Step 3 (just run current benchmarks, no comparison).
 
 ## Step 2: Run Current Benchmarks
 
@@ -46,19 +58,23 @@ If there's a benchmark filter in `$ARGUMENTS`, pass it through (e.g., `cargo ben
 
 ## Step 3: Run Baseline (if requested)
 
+Only run if `BASELINE` is set:
+
 ```bash
-# Stash current changes if needed
-git stash --include-untracked
+if [ -n "$BASELINE" ]; then
+  # Stash current changes if needed
+  git stash --include-untracked || { echo "Failed to stash changes"; exit 1; }
 
-# Checkout baseline
-git checkout $BASELINE
+  # Checkout baseline
+  git checkout "$BASELINE" || { echo "Failed to checkout $BASELINE"; git stash pop; exit 1; }
 
-# Run same benchmarks
-cargo bench 2>&1 | tee /tmp/bench-baseline.txt
+  # Run same benchmarks
+  cargo bench 2>&1 | tee /tmp/bench-baseline.txt
 
-# Return to original branch
-git checkout -
-git stash pop 2>/dev/null
+  # Return to original branch
+  git checkout - || { echo "Failed to return to original branch"; exit 1; }
+  git stash pop 2>/dev/null || true
+fi
 ```
 
 ## Step 4: Compare and Format

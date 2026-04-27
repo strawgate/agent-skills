@@ -172,14 +172,14 @@ def main():
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Process issues
-    issues_json = gh_triage_dir / owner_repo / "open-issues.json"
+    # Process issues - gh-triage writes directly to the output dir
+    issues_json = gh_triage_dir / "open-issues.json"
     if issues_json.exists():
         write_issue_records(issues_json, output_dir)
         print(f"Wrote issues to {output_dir / 'issues'}")
 
-    # Process PRs
-    prs_json = gh_triage_dir / owner_repo / "open-prs.json"
+    # Process PRs - gh-triage writes directly to the output dir
+    prs_json = gh_triage_dir / "open-prs.json"
     if prs_json.exists():
         write_pr_records(prs_json, output_dir)
         print(f"Wrote PRs to {output_dir / 'prs'}")
