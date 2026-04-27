@@ -43,34 +43,50 @@ query($owner: String!, $repo: String!) {
 
 
 def fetch_pr_overview(owner: str, repo: str) -> list[dict]:
-    """Fetch overview of all open PRs - 1 GraphQL point."""
+    """Fetch overview of all open PRs - 1 GraphQL point.
+
+    GraphQL is used here because REST /pulls has no efficient totalCount
+    for labels, comments, reviewRequests, reviewThreads, and CI status.
+    """
     response = gh_graphql(PR_OVERVIEW_QUERY, {"owner": owner, "repo": repo})
     return response["data"]["repository"]["pullRequests"]["nodes"]
 
 
 def fetch_pr_details(owner: str, repo: str, pr_number: int) -> dict:
-    """Fetch full PR details - ~2 GraphQL points."""
-    # PR metadata
-    query = """
-    query($owner: String!, $repo: String!, $number: Int!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $number) {
-          number title body state isDraft mergeable
-          author { login }
-          additions deletions changedFiles
-          commits { totalCount }
-          createdAt updatedAt
-          baseRefName headRefName
-        }
-      }
-    }
+    """Fetch PR metadata via REST (free).
+
+    REST /pulls/{number} gives: title, body, state, draft, mergeable,
+    additions, deletions, changed_files, commits, created_at, updated_at,
+    base, head, user. All free!
+
+    GraphQL is NOT needed for PR metadata.
     """
-    pr_data = gh_graphql(query, {"owner": owner, "repo": repo, "number": pr_number})
-    return pr_data["data"]["repository"]["pullRequest"]
+    pr = gh_rest(f"repos/{owner}/{repo}/pulls/{pr_number}", paginate=False)
+    return {
+        "number": pr["number"],
+        "title": pr["title"],
+        "body": pr["body"],
+        "state": pr["state"],
+        "isDraft": pr["draft"],
+        "mergeable": pr.get("mergeable"),
+        "additions": pr["additions"],
+        "deletions": pr["deletions"],
+        "changedFiles": pr["changed_files"],
+        "commits": {"totalCount": pr["commits"]},
+        "author": {"login": pr["user"]["login"]},
+        "createdAt": pr["created_at"],
+        "updatedAt": pr["updated_at"],
+        "baseRefName": pr["base"]["ref"],
+        "headRefName": pr["head"]["ref"],
+    }
 
 
 def fetch_pr_threads(owner: str, repo: str, pr_number: int) -> list[dict]:
-    """Fetch PR review threads - 1 GraphQL point."""
+    """Fetch PR review threads - 1 GraphQL point.
+
+    GraphQL is required here because REST doesn't provide an efficient
+    way to get review threads with resolved/unresolved status.
+    """
     query = """
     query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
       repository(owner: $owner, name: $repo) {
@@ -125,7 +141,6 @@ def fetch_pr_reviews(owner: str, repo: str, pr_number: int) -> list[dict]:
 
 def fetch_pr_diff(owner: str, repo: str, pr_number: int) -> str:
     """Fetch PR diff via REST (free)."""
-    result = gh_rest(f"repos/{owner}/{repo}/pulls/{pr_number}", paginate=False)
     diff_url = f"https://github.com/{owner}/{repo}/pull/{pr_number}.diff"
     import subprocess
     proc = subprocess.run(

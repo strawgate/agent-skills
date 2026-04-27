@@ -30,7 +30,11 @@ query($owner: String!, $repo: String!) {
 
 
 def fetch_issue_overview(owner: str, repo: str) -> list[dict]:
-    """Fetch overview of all open issues - 1 GraphQL point."""
+    """Fetch overview of all open issues - 1 GraphQL point.
+
+    GraphQL is used here because REST /issues has no efficient totalCount.
+    With REST, we'd need to fetch all issues and count them.
+    """
     response = gh_graphql(ISSUE_OVERVIEW_QUERY, {"owner": owner, "repo": repo})
     return response["data"]["repository"]["issues"]["nodes"]
 
@@ -46,31 +50,32 @@ def fetch_issue_comments(owner: str, repo: str, issue_number: int) -> list[dict]
 
 
 def fetch_issue_details(owner: str, repo: str, issue_number: int) -> dict:
-    """Fetch full issue details via GraphQL (~1 point)."""
-    query = """
-    query($owner: String!, $repo: String!, $number: Int!) {
-      repository(owner: $owner, name: $repo) {
-        issue(number: $number) {
-          number
-          title
-          body
-          state
-          createdAt
-          updatedAt
-          author { login }
-          labels(first: 50) { totalCount nodes { name } }
-          assignees(first: 20) { totalCount nodes { login } }
-          comments { totalCount }
-          milestone { title }
-        }
-      }
-    }
+    """Fetch full issue details via REST (free).
+
+    REST is preferred here because all data comes from 2 free calls:
+    - Issue metadata + assignees from /issues/{number}
+    - Labels from /issues/{number}/labels
+    Total: 2 free calls vs 1 GraphQL point.
     """
-    response = gh_graphql(query, {"owner": owner, "repo": repo, "number": issue_number})
-    return response["data"]["repository"]["issue"]
+    issue_resp = gh_rest(f"repos/{owner}/{repo}/issues/{issue_number}", paginate=False)
+    labels = gh_rest(f"repos/{owner}/{repo}/issues/{issue_number}/labels", paginate=False) or []
+
+    return {
+        "number": issue_resp["number"],
+        "title": issue_resp["title"],
+        "body": issue_resp["body"],
+        "state": issue_resp["state"],
+        "createdAt": issue_resp["created_at"],
+        "updatedAt": issue_resp["updated_at"],
+        "author": {"login": issue_resp["user"]["login"]},
+        "labels": {"nodes": [{"name": l["name"]} for l in labels]},
+        "assignees": {"nodes": [{"login": a["login"]} for a in issue_resp.get("assignees", [])]},
+        "comments": {"totalCount": issue_resp["comments"]},
+        "milestone": {"title": issue_resp["milestone"]["title"] if issue_resp.get("milestone") else None},
+    }
 
 
-def write_issue_record(issue: dict, output_dir: Path) -> None:
+def write_issue_record(issue: dict, output_dir: Path, owner: str, repo: str) -> None:
     """Write a single issue as a text file."""
     number = issue["number"]
     lines = [
@@ -80,9 +85,9 @@ def write_issue_record(issue: dict, output_dir: Path) -> None:
         f"created_at: {issue.get('createdAt', '')}",
         f"updated_at: {issue.get('updatedAt', '')}",
         f"author: {issue.get('author', {}).get('login', 'none')}",
-        f"labels_count: {issue.get('labels', {}).get('totalCount', 0)}",
-        f"assignees_count: {issue.get('assignees', {}).get('totalCount', 0)}",
-        f"comments_count: {issue.get('comments', {}).get('totalCount', 0)}",
+        f"labels_count: {issue.get('labels', {}).get('totalCount', 0) if isinstance(issue.get('labels'), dict) else len(issue.get('labels', {}).get('nodes', []))}",
+        f"assignees_count: {issue.get('assignees', {}).get('totalCount', 0) if isinstance(issue.get('assignees'), dict) else len(issue.get('assignees', {}).get('nodes', []))}",
+        f"comments_count: {issue.get('comments', {}).get('totalCount', 0) if isinstance(issue.get('comments'), dict) else issue.get('comments', 0)}",
         f"milestone: {issue.get('milestone', {}).get('title', '')}",
         f"url: https://github.com/{owner}/{repo}/issues/{number}",
         "",
