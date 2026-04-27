@@ -259,5 +259,49 @@ def pr_context(owner_repo: str, pr_number: int, output_dir: Optional[str]):
     console.print(f"[green]Context saved to {context_dir}[/dim]")
 
 
+@cli.command()
+@click.argument("owner_repo")
+@click.argument("issue_number", type=int)
+@click.option("--output-dir", "-o", help="Output directory")
+def issue_details(owner_repo: str, issue_number: int, output_dir: Optional[str]):
+    """Fetch full issue details (~1 GraphQL point + REST free)."""
+    owner, repo = get_owner_repo(owner_repo)
+    out_dir = get_output_dir(owner_repo, output_dir)
+    issue_dir = out_dir / "issues" / str(issue_number)
+    issue_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[bold]Issue Details: {owner_repo} #{issue_number}[/bold]\n")
+
+    # Fetch issue via GraphQL
+    console.print("[dim]Fetching issue metadata...[/dim]")
+    from .fetch_issues import fetch_issue_details
+    issue_data = fetch_issue_details(owner, repo, issue_number)
+
+    # Fetch comments via REST (free)
+    console.print("[dim]Fetching comments (REST, free)...[/dim]")
+    from .fetch_issues import fetch_issue_comments
+    comments = fetch_issue_comments(owner, repo, issue_number)
+
+    # Save files
+    import json
+    Path(issue_dir / "issue.json").write_text(json.dumps(issue_data, indent=2, default=str))
+    Path(issue_dir / "comments.json").write_text(json.dumps(comments, indent=2, default=str))
+
+    # Summary
+    console.print(f"\n## [cyan]Issue #{issue_number}[/cyan]: {issue_data.get('title', '')}")
+    console.print(f"**Author:** {issue_data.get('author', {}).get('login', 'none')}")
+    console.print(f"**State:** {issue_data.get('state', '')}")
+    console.print(f"**Labels:** {issue_data.get('labels', {}).get('totalCount', 0)}")
+    console.print(f"**Assignees:** {issue_data.get('assignees', {}).get('totalCount', 0)}")
+    console.print(f"**Comments:** {len(comments)}")
+
+    body = issue_data.get("body") or "<empty>"
+    if len(body) > 200:
+        body = body[:200] + "..."
+    console.print(f"\n**Body:**\n{body}")
+
+    console.print(f"\n[dim]Saved to: {issue_dir}[/dim]")
+
+
 if __name__ == "__main__":
     cli()

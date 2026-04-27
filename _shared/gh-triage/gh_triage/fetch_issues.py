@@ -45,6 +45,31 @@ def fetch_issue_comments(owner: str, repo: str, issue_number: int) -> list[dict]
     return gh_rest(f"repos/{owner}/{repo}/issues/{issue_number}/comments", paginate=True)
 
 
+def fetch_issue_details(owner: str, repo: str, issue_number: int) -> dict:
+    """Fetch full issue details via GraphQL (~1 point)."""
+    query = """
+    query($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $number) {
+          number
+          title
+          body
+          state
+          createdAt
+          updatedAt
+          author { login }
+          labels(first: 50) { totalCount nodes { name } }
+          assignees(first: 20) { totalCount nodes { login } }
+          comments { totalCount }
+          milestone { title }
+        }
+      }
+    }
+    """
+    response = gh_graphql(query, {"owner": owner, "repo": repo, "number": issue_number})
+    return response["data"]["repository"]["issue"]
+
+
 def write_issue_record(issue: dict, output_dir: Path) -> None:
     """Write a single issue as a text file."""
     number = issue["number"]
