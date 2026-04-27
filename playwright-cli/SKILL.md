@@ -1,26 +1,63 @@
 ---
 name: playwright-cli
-description: Automate browser interactions, test web pages and work with Playwright tests.
+description: Automate browser interactions using Microsoft's playwright-cli. Uses snapshot-first workflow with element references instead of CSS selectors. Use when the user says "browser automation", "interact with a page", "test a web page", or "fill out a form".
 allowed-tools: Bash
 ---
 
 # Browser Automation with playwright-cli
 
+## What is playwright-cli?
+
+`playwright-cli` is Microsoft's **[@playwright/cli](https://github.com/microsoft/playwright-cli)** package. Unlike raw Playwright scripts that use CSS/XPath selectors, it uses **element snapshots** with stable references like `e15`.
+
+### Why snapshot-first is better for agents
+
+| Raw Playwright | playwright-cli |
+|---------------|---------------|
+| `page.click("#submit-btn")` | `playwright-cli click e15` |
+| Selectors break when DOM changes | References persist across DOM mutations |
+| Need to wait for selectors | Snapshot already resolves elements |
+| CSS selectors are fragile | Element refs are stable and semantic |
+
+The snapshot gives you element references that remain valid even if JavaScript rewrites the DOM. This makes browser automation **reliable** rather than flaky.
+
+## Core Workflow
+
+```
+1. playwright-cli open
+2. playwright-cli goto <url>
+3. playwright-cli snapshot          # Get element refs (e0, e1, e2, ...)
+4. playwright-cli click e15         # Use refs from snapshot
+5. playwright-cli snapshot          # Refresh after DOM changes
+6. playwright-cli type e20 "text"
+7. playwright-cli screenshot        # Optional verification
+8. playwright-cli close
+```
+
 ## Quick start
 
 ```bash
-# open new browser
+# Open browser
 playwright-cli open
-# navigate to a page
-playwright-cli goto https://playwright.dev
-# interact with the page using refs from the snapshot
-playwright-cli click e15
-playwright-cli type "page.click"
-playwright-cli press Enter
-# take a screenshot (rarely used, as snapshot is more common)
+
+# Navigate
+playwright-cli goto https://example.com
+
+# Get element references
+playwright-cli snapshot
+# Output shows refs like:
+#   e0: button "Submit"
+#   e1: input[type="text"][name="email"]
+#   e2: input[type="password"][name="password"]
+
+# Interact using refs
+playwright-cli fill e1 "user@example.com"
+playwright-cli fill e2 "password123"
+playwright-cli click e0
+
+# Verify
+playwright-cli snapshot  # Get new refs after page change
 playwright-cli screenshot
-# close the browser
-playwright-cli close
 ```
 
 ## Commands
@@ -28,32 +65,46 @@ playwright-cli close
 ### Core
 
 ```bash
-playwright-cli open
-# open and navigate right away
-playwright-cli open https://example.com/
-playwright-cli goto https://playwright.dev
-playwright-cli type "search query"
-playwright-cli click e3
-playwright-cli dblclick e7
-# --submit presses Enter after filling the element
-playwright-cli fill e5 "user@example.com"  --submit
-playwright-cli drag e2 e8
-playwright-cli hover e4
-playwright-cli select e9 "option-value"
-playwright-cli upload ./document.pdf
-playwright-cli check e12
-playwright-cli uncheck e12
-playwright-cli snapshot
+playwright-cli open                              # Open browser
+playwright-cli open https://example.com/         # Open and navigate
+playwright-cli goto <url>                       # Navigate
+playwright-cli snapshot [element]                # Get element refs
+playwright-cli click <ref> [button]            # Click (left/right/middle)
+playwright-cli dblclick <ref>                   # Double click
+playwright-cli fill <ref> <text> [--submit]    # Fill and optionally submit
+playwright-cli type <ref> <text>               # Type character by character
+playwright-cli hover <ref>                      # Hover
+playwright-cli select <ref> <value>            # Select dropdown option
+playwright-cli check <ref>                      # Check checkbox/radio
+playwright-cli uncheck <ref>                    # Uncheck
+playwright-cli drag <start_ref> <end_ref>       # Drag and drop
+playwright-cli upload <ref> <file>              # Upload file
+```
+
+### Element References
+
+After `snapshot`, elements are referenced by ID:
+```
+e0: button "Submit"
+e1: input[type="text"][name="email"]
+e2: input[type="password"][name="password"]
+e3: a[href="/forgot"]
+```
+
+Use these refs directly in commands:
+```bash
+playwright-cli fill e1 "user@example.com"
+playwright-cli click e0
+```
+
+### Evaluation
+
+```bash
+# Evaluate JavaScript on page
 playwright-cli eval "document.title"
 playwright-cli eval "el => el.textContent" e5
-# get element id, class, or any attribute not visible in the snapshot
 playwright-cli eval "el => el.id" e5
 playwright-cli eval "el => el.getAttribute('data-testid')" e5
-playwright-cli dialog-accept
-playwright-cli dialog-accept "confirmation text"
-playwright-cli dialog-dismiss
-playwright-cli resize 1920 1080
-playwright-cli close
 ```
 
 ### Navigation
@@ -78,267 +129,116 @@ playwright-cli keyup Shift
 ```bash
 playwright-cli mousemove 150 300
 playwright-cli mousedown
-playwright-cli mousedown right
 playwright-cli mouseup
-playwright-cli mouseup right
 playwright-cli mousewheel 0 100
 ```
 
-### Save as
+### Screenshot/PDF
 
 ```bash
-playwright-cli screenshot
-playwright-cli screenshot e5
-playwright-cli screenshot --filename=page.png
-playwright-cli pdf --filename=page.pdf
+playwright-cli screenshot              # Full page
+playwright-cli screenshot e5         # Specific element
+playwright-cli pdf
 ```
 
 ### Tabs
 
 ```bash
-playwright-cli tab-list
-playwright-cli tab-new
-playwright-cli tab-new https://example.com/page
-playwright-cli tab-close
-playwright-cli tab-close 2
-playwright-cli tab-select 0
+playwright-cli tab-list              # List all tabs
+playwright-cli tab-new <url>         # Open new tab
+playwright-cli tab-close             # Close current tab
+playwright-cli tab-select <index>   # Switch to tab
 ```
 
-### Storage
+### Storage (Auth, Cookies)
 
 ```bash
-playwright-cli state-save
+# Save/restore authentication state
 playwright-cli state-save auth.json
 playwright-cli state-load auth.json
 
 # Cookies
 playwright-cli cookie-list
-playwright-cli cookie-list --domain=example.com
-playwright-cli cookie-get session_id
-playwright-cli cookie-set session_id abc123
-playwright-cli cookie-set session_id abc123 --domain=example.com --httpOnly --secure
-playwright-cli cookie-delete session_id
+playwright-cli cookie-set name value
+playwright-cli cookie-delete name
 playwright-cli cookie-clear
-
-# LocalStorage
-playwright-cli localstorage-list
-playwright-cli localstorage-get theme
-playwright-cli localstorage-set theme dark
-playwright-cli localstorage-delete theme
-playwright-cli localstorage-clear
-
-# SessionStorage
-playwright-cli sessionstorage-list
-playwright-cli sessionstorage-get step
-playwright-cli sessionstorage-set step 3
-playwright-cli sessionstorage-delete step
-playwright-cli sessionstorage-clear
 ```
 
-### Network
+### Network Mocking
 
 ```bash
-playwright-cli route "**/*.jpg" --status=404
-playwright-cli route "https://api.example.com/**" --body='{"mock": true}'
+# Mock API responses
+playwright-cli route "*/api/*"
 playwright-cli route-list
-playwright-cli unroute "**/*.jpg"
-playwright-cli unroute
+playwright-cli unroute "*/api/*"
+```
+
+### Sessions
+
+```bash
+# Named sessions (attach to existing browser)
+playwright-cli -s=my-session open
+
+# List sessions
+playwright-cli list
+
+# Clean up
+playwright-cli close
+playwright-cli close-all
+playwright-cli kill-all
 ```
 
 ### DevTools
 
 ```bash
-playwright-cli console
-playwright-cli console warning
-playwright-cli network
-playwright-cli run-code "async page => await page.context().grantPermissions(['geolocation'])"
-playwright-cli run-code --filename=script.js
+playwright-cli console [min-level]  # View console logs
+playwright-cli network              # View network requests
 playwright-cli tracing-start
 playwright-cli tracing-stop
-playwright-cli video-start video.webm
-playwright-cli video-chapter "Chapter Title" --description="Details" --duration=2000
-playwright-cli video-stop
+playwright-cli show                  # Open DevTools
 ```
 
-## Raw output
-
-The global `--raw` option strips page status, generated code, and snapshot sections from the output, returning only the result value. Use it to pipe command output into other tools. Commands that don't produce output return nothing.
+## Browser Options
 
 ```bash
-playwright-cli --raw eval "JSON.stringify(performance.timing)" | jq '.loadEventEnd - .navigationStart'
-playwright-cli --raw eval "JSON.stringify([...document.querySelectorAll('a')].map(a => a.href))" > links.json
-playwright-cli --raw snapshot > before.yml
-playwright-cli click e5
-playwright-cli --raw snapshot > after.yml
-diff before.yml after.yml
-TOKEN=$(playwright-cli --raw cookie-get session_id)
-playwright-cli --raw localstorage-get theme
+--browser=chrome    # Chrome (default)
+--browser=firefox   # Firefox
+--browser=webkit    # WebKit
+--browser=msedge    # Microsoft Edge
+--headed            # Show browser window
 ```
 
-## Open parameters
-```bash
-# Use specific browser when creating session
-playwright-cli open --browser=chrome
-playwright-cli open --browser=firefox
-playwright-cli open --browser=webkit
-playwright-cli open --browser=msedge
+## Why playwright-cli beats raw Playwright scripts
 
-# Use persistent profile (by default profile is in-memory)
-playwright-cli open --persistent
-# Use persistent profile with custom directory
-playwright-cli open --profile=/path/to/profile
+1. **Stable refs**: CSS selectors break when developers refactor HTML. Element refs from snapshots are semantic and stable.
 
-# Connect to browser via extension
-playwright-cli attach --extension
+2. **Snapshot shows actual state**: The snapshot reflects what's actually rendered, not what selectors *expect* to exist.
 
-# Start with config file
-playwright-cli open --config=my-config.json
+3. **Agents don't need to write selectors**: Agents get refs directly and use them. No selector debugging.
 
-# Close the browser
-playwright-cli close
-# Delete user data for the default session
-playwright-cli delete-data
-```
+4. **Session persistence**: State carries across commands. Login persists. No need to re-authenticate.
 
-## Snapshots
+5. **Network mocking built-in**: Route API calls without writing server stubs.
 
-After each command, playwright-cli provides a snapshot of the current browser state.
+6. **Storage API**: Save/restore cookies and localStorage for authenticated sessions.
+
+## Example: Login Flow
 
 ```bash
-> playwright-cli goto https://example.com
-### Page
-- Page URL: https://example.com/
-- Page Title: Example Domain
-### Snapshot
-[Snapshot](.playwright-cli/page-2026-02-14T19-22-42-679Z.yml)
-```
-
-You can also take a snapshot on demand using `playwright-cli snapshot` command. All the options below can be combined as needed.
-
-```bash
-# default - save to a file with timestamp-based name
+playwright-cli open
+playwright-cli goto https://app.example.com/login
 playwright-cli snapshot
 
-# save to file, use when snapshot is a part of the workflow result
-playwright-cli snapshot --filename=after-click.yaml
+# Output:
+# e0: input[type="text"][name="username"]
+# e1: input[type="password"][name="password"]
+# e2: button[type="submit"]
 
-# snapshot an element instead of the whole page
-playwright-cli snapshot "#main"
+playwright-cli fill e0 "myuser"
+playwright-cli fill e1 "mypassword"
+playwright-cli click e2
 
-# limit snapshot depth for efficiency, take a partial snapshot afterwards
-playwright-cli snapshot --depth=4
-playwright-cli snapshot e34
-```
-
-## Targeting elements
-
-By default, use refs from the snapshot to interact with page elements.
-
-```bash
-# get snapshot with refs
 playwright-cli snapshot
-
-# interact using a ref
-playwright-cli click e15
+# Now on dashboard
+playwright-cli screenshot
 ```
-
-You can also use css selectors or Playwright locators.
-
-```bash
-# css selector
-playwright-cli click "#main > button.submit"
-
-# role locator
-playwright-cli click "getByRole('button', { name: 'Submit' })"
-
-# test id
-playwright-cli click "getByTestId('submit-button')"
-```
-
-## Browser Sessions
-
-```bash
-# create new browser session named "mysession" with persistent profile
-playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
-playwright-cli -s=mysession open example.com --profile=/path/to/profile
-playwright-cli -s=mysession click e6
-playwright-cli -s=mysession close  # stop a named browser
-playwright-cli -s=mysession delete-data  # delete user data for persistent session
-
-playwright-cli list
-# Close all browsers
-playwright-cli close-all
-# Forcefully kill all browser processes
-playwright-cli kill-all
-```
-
-## Installation
-
-If global `playwright-cli` command is not available, try a local version via `npx playwright-cli`:
-
-```bash
-npx --no-install playwright-cli --version
-```
-
-When local version is available, use `npx playwright-cli` in all commands. Otherwise, install `playwright-cli` as a global command:
-
-```bash
-npm install -g @playwright/cli@latest
-```
-
-## Example: Form submission
-
-```bash
-playwright-cli open https://example.com/form
-playwright-cli snapshot
-
-playwright-cli fill e1 "user@example.com"
-playwright-cli fill e2 "password123"
-playwright-cli click e3
-playwright-cli snapshot
-playwright-cli close
-```
-
-## Example: Multi-tab workflow
-
-```bash
-playwright-cli open https://example.com
-playwright-cli tab-new https://example.com/other
-playwright-cli tab-list
-playwright-cli tab-select 0
-playwright-cli snapshot
-playwright-cli close
-```
-
-## Example: Debugging with DevTools
-
-```bash
-playwright-cli open https://example.com
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli console
-playwright-cli network
-playwright-cli close
-```
-
-```bash
-playwright-cli open https://example.com
-playwright-cli tracing-start
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli tracing-stop
-playwright-cli close
-```
-
-## Specific tasks
-
-* **Running and Debugging Playwright tests** [references/playwright-tests.md](references/playwright-tests.md)
-* **Request mocking** [references/request-mocking.md](references/request-mocking.md)
-* **Running Playwright code** [references/running-code.md](references/running-code.md)
-* **Browser session management** [references/session-management.md](references/session-management.md)
-* **Storage state (cookies, localStorage)** [references/storage-state.md](references/storage-state.md)
-* **Test generation** [references/test-generation.md](references/test-generation.md)
-* **Tracing** [references/tracing.md](references/tracing.md)
-* **Video recording** [references/video-recording.md](references/video-recording.md)
-* **Inspecting element attributes** [references/element-attributes.md](references/element-attributes.md)
