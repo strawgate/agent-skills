@@ -181,7 +181,7 @@ playwright-cli --raw localstorage-get theme
 playwright-cli open --browser=chrome
 playwright-cli open --browser=firefox
 playwright-cli open --browser=webkit
-playwright-cli open --browser=microsoft-edge
+playwright-cli open --browser=msedge
 
 # Use persistent profile (by default profile is in-memory)
 playwright-cli open --persistent
