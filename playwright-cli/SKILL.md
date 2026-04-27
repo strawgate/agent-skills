@@ -1,7 +1,7 @@
 ---
 name: playwright-cli
 description: Automate browser interactions, test web pages and work with Playwright tests.
-allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
+allowed-tools: Bash
 ---
 
 # Browser Automation with playwright-cli
@@ -181,7 +181,7 @@ playwright-cli --raw localstorage-get theme
 playwright-cli open --browser=chrome
 playwright-cli open --browser=firefox
 playwright-cli open --browser=webkit
-playwright-cli open --browser=msedge
+playwright-cli open --browser=microsoft-edge
 
 # Use persistent profile (by default profile is in-memory)
 playwright-cli open --persistent

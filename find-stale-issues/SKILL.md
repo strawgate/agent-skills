@@ -10,7 +10,6 @@ Audit all open GitHub issues against recently closed PRs, merged PRs, recent com
 
 ## Scripts
 
-- [Fetch issues via gh-triage](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/pyproject.toml)
 - [Build semantic indexes](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh)
 
 ## Step 0: Determine the Target Repo

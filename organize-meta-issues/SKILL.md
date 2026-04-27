@@ -51,7 +51,7 @@ Read these if they exist:
 
 - `README.md`
 - `DEVELOPING.md` / `CONTRIBUTING.md`
-- `AGENTS.md` / `AGENTS.md`
+- `AGENTS.md`
 - `docs/ARCHITECTURE.md` or any architecture doc
 - `ROADMAP.md`
 - `docs/**/*.md`
