@@ -1,6 +1,8 @@
 """Fetch GitHub PRs for triage."""
 
-from .github import get_client, get_owner_repo, gh_graphql, gh_rest, gh_rest_raw, save_json
+import httpx
+
+from .github import get_owner_repo, gh_graphql, gh_rest, save_json
 
 
 PR_OVERVIEW_QUERY = """
@@ -136,8 +138,23 @@ def fetch_pr_reviews(owner: str, repo: str, pr_number: int) -> list[dict]:
 
 
 def fetch_pr_diff(owner: str, repo: str, pr_number: int) -> str:
-    """Fetch PR diff as raw text via REST (free)."""
-    return gh_rest_raw(f"repos/{owner}/{repo}/pulls/{pr_number}/files")
+    """Fetch PR unified diff via REST with diff Accept header (free)."""
+    import subprocess
+
+    result = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True)
+    token = result.stdout.strip()
+    resp = httpx.get(
+        f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github.v3.diff",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        timeout=30,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Failed to fetch diff: {resp.status_code} {resp.text[:200]}")
+    return resp.text
 
 
 def fetch_pr_files(owner: str, repo: str, pr_number: int) -> list[dict]:
