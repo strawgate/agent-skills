@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# gh-pr-context — fetch PR context bundle via gh-triage
+set -euo pipefail
+
+if [[ $# -lt 2 ]]; then
+  echo "usage: $0 OWNER/REPO PR_NUMBER" >&2
+  exit 1
+fi
+
+repo="$1"
+pr_number="$2"
+skill_dir="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$skill_dir/../_shared/gh-triage"
+
+uv run gh-triage pr-context "$repo" "$pr_number"
