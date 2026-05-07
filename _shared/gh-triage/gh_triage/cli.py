@@ -302,7 +302,7 @@ def pr_context(owner_repo: str, pr_number: int, output_dir: str | None):
             checks_dst = context_dir / "checks"
             shutil.copytree(checks_src, checks_dst, dirs_exist_ok=True)
 
-    console.print(f"[green]Context saved to {context_dir}[/dim]")
+    console.print(f"[green]Context saved to {context_dir}[/green]")
 
 
 @cli.command()
