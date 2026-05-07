@@ -21,18 +21,33 @@ allowed-tools: Bash
 
 The snapshot gives you element references that remain valid even if JavaScript rewrites the DOM. This makes browser automation **reliable** rather than flaky.
 
+## When to use this vs. `playwright-e2e`
+
+| Use `playwright-cli` for                                   | Use `playwright-e2e` for                                          |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| One-off interactive verification of a UI change            | Repeatable automated checks that run in CI                        |
+| Debugging why a Playwright test is flaky                   | Asserting a specific user-visible behavior                        |
+| Showing the user what a flow looks like (snapshots/PNGs)   | Per-test scoped mocks, parallel execution                         |
+| Exploratory poking around an unfamiliar app                | Declarative assertions (`toBeVisible`, `toBeEnabled`)             |
+
+`playwright-cli` is **imperative and exploratory** — you read snapshots and verify by eye. There are no built-in assertions; success means "the snapshot looks right." For durable tests that fail loudly when behavior breaks, write `@playwright/test` cases instead (the `playwright-e2e` skill walks through that path).
+
 ## Core Workflow
 
 ```
 1. playwright-cli open
-2. playwright-cli goto <url>
-3. playwright-cli snapshot          # Get element refs (e0, e1, e2, ...)
-4. playwright-cli click e15         # Use refs from snapshot
-5. playwright-cli snapshot          # Refresh after DOM changes
-6. playwright-cli type e20 "text"
-7. playwright-cli screenshot        # Optional verification
-8. playwright-cli close
+2. playwright-cli route "**/auth/me" --body '{"user":...}'    # Mock BEFORE goto
+3. playwright-cli route "**/api/v1/..." --body '...'
+4. playwright-cli goto <url>
+5. playwright-cli snapshot          # Get element refs (e0, e1, e2, ...)
+6. playwright-cli click e15         # Use refs from snapshot
+7. playwright-cli snapshot          # Refresh after DOM changes
+8. playwright-cli type e20 "text"
+9. playwright-cli screenshot        # Optional verification
+10. playwright-cli close
 ```
+
+> **Critical: register mocks BEFORE the first `goto`.** Any auth-protected SPA (almost all of them) hits `/auth/me` or similar on first paint. If that returns 500/401 because no mock is registered yet, the page redirects to `/login` and your subsequent `goto` to a deep link silently fails. **Open → mocks → goto** is the only order that works.
 
 ## Quick start
 
@@ -167,11 +182,40 @@ playwright-cli cookie-clear
 ### Network Mocking
 
 ```bash
-# Mock API responses
-playwright-cli route "*/api/*"
+# Mock with full response control
+playwright-cli route "**/api/v1/users" \
+  --status 200 \
+  --content-type "application/json" \
+  --body '{"users":[]}'
+
+# Mock with headers
+playwright-cli route "**/api/v1/secret" \
+  --status 200 \
+  --body 'ok' \
+  --header "X-Foo: bar"
+
+# Glob patterns: ** matches any path, * matches a single segment
+# Always quote glob patterns to keep the shell from expanding them.
+playwright-cli route "**/api/v1/things/*/status" --body '{"healthy":true}'
+
+# Manage routes
 playwright-cli route-list
-playwright-cli unroute "*/api/*"
+playwright-cli unroute "**/api/*"
 ```
+
+**Body escaping.** For inline JSON, single-quote the whole `--body` value so the shell doesn't expand `$` or quotes:
+
+```bash
+playwright-cli route "**/api/me" --body '{"user":{"id":"u1","email":"x@y.z"}}'
+```
+
+For larger fixtures, read from a file — the shell expands `$(cat …)` before passing to `playwright-cli`:
+
+```bash
+playwright-cli route "**/api/things" --body "$(cat fixtures/things.json)"
+```
+
+**Mock order matters.** Mocks are first-match. Register more-specific patterns first (e.g. `**/api/v1/things/123` before `**/api/v1/things/*`).
 
 ### Sessions
 
@@ -242,3 +286,63 @@ playwright-cli snapshot
 # Now on dashboard
 playwright-cli screenshot
 ```
+
+## Recipe: Verifying an authenticated SPA deep-link (mocked)
+
+The most common use case: an authenticated single-page app where you want to verify a specific page's behavior without spinning up the full backend. The trick is **mock everything the page hits before the first `goto`** — otherwise the auth check fails and the SPA bounces to `/login`.
+
+```bash
+SESSION=demo
+
+# 1. Open
+playwright-cli -s=$SESSION open
+
+# 2. Mock auth + initial data BEFORE any navigation
+playwright-cli -s=$SESSION route "**/auth/me" \
+  --status 200 --content-type "application/json" \
+  --body '{"user":{"userId":"u1","email":"x@y.z","role":"member","tenantId":"t1"}}'
+
+playwright-cli -s=$SESSION route "**/api/v1/tenant" \
+  --body '{"id":"t1","name":"Demo","plan":"pro"}'
+
+playwright-cli -s=$SESSION route "**/api/v1/things/123" \
+  --body "$(cat fixtures/thing-123.json)"
+
+# 3. Now navigate
+playwright-cli -s=$SESSION goto http://localhost:3000/things/123
+
+# 4. Snapshot to find element refs
+playwright-cli -s=$SESSION snapshot
+
+# 5. Drive
+playwright-cli -s=$SESSION click e164      # Settings tab
+playwright-cli -s=$SESSION click e239      # "Restart" button
+
+# 6. Mock the mutation just before triggering it
+playwright-cli -s=$SESSION route "**/api/v1/things/123/restart" \
+  --body '{"restarted":2}'
+
+playwright-cli -s=$SESSION snapshot        # confirm modal opened
+playwright-cli -s=$SESSION click e276      # confirm button
+playwright-cli -s=$SESSION snapshot        # toast should now show
+playwright-cli -s=$SESSION screenshot      # visual proof
+
+# 7. Inspect what the SPA actually hit
+playwright-cli -s=$SESSION network         # see all requests
+playwright-cli -s=$SESSION console         # see any errors
+
+# 8. Clean up
+playwright-cli -s=$SESSION close
+```
+
+**Why this works:** every API request the SPA makes is intercepted by a registered route. None of the requests hit a real backend, so the worker/server doesn't need to be running. The `failUnexpectedApi`-style "fail on unmocked routes" pattern from `@playwright/test` doesn't exist in `playwright-cli` — instead, watch `playwright-cli network` for unmocked URLs.
+
+## Limitations & gotchas
+
+- **No built-in assertions.** `playwright-cli` is for *exploration* and *visual verification*. There's no `expect(...).toBeVisible()`. You read snapshots and PNGs and judge by eye. If you need pass/fail in CI, write `@playwright/test` cases (see the `playwright-e2e` skill).
+- **Each command is a fresh Node process.** Chaining 10 commands costs ~10× process-spawn overhead. Snapshots and `route` registrations persist across commands within the same `-s=<session>`, but the latency adds up — for tight loops the test runner is much faster.
+- **Element refs (`e15`) live inside one snapshot.** When the page DOM changes (new modal, route change), call `snapshot` again to get fresh refs. Existing refs may still resolve if the underlying element stuck around, but don't count on it across major React re-renders.
+- **Mock-before-`goto` is mandatory for auth-protected SPAs.** First-paint requests fire the moment the page loads. Register `**/auth/me` (or your equivalent) and any data the page reads before route changes settle, *before* you call `goto`.
+- **Glob quoting matters.** Always wrap patterns in single or double quotes — bare `**` and `*` will be expanded by the shell. `route "**/api/*"` is safe; `route **/api/*` will silently match files in your CWD instead.
+- **Session is the persistence boundary.** Mocks, cookies, and tabs all attach to a session (`-s=name`). Forget the flag and you'll get a fresh browser without your mocks. Pick a session name and use it consistently.
+- **`route-list` shows what's registered, `network` shows what fired.** Use them together: `route-list` confirms your mocks landed; `network` confirms the page hit them (or fell through to a real request).
