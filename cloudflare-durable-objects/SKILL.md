@@ -1,8 +1,9 @@
 ---
 name: cloudflare-durable-objects
 description: Patterns and guidance for building Cloudflare Durable Objects — SQLite storage, hibernation, WebSockets, migrations, and cost optimization.
-argument-hint: "[topic e.g. 'SQLite migration', 'WebSocket hibernation', 'pricing']"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[topic e.g. 'SQLite migration', 'WebSocket hibernation', 'pricing']"
 ---
 
 # Cloudflare Durable Objects Skill

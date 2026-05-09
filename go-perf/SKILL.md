@@ -1,8 +1,9 @@
 ---
 name: go-perf
 description: Go performance optimization — profile with pprof, identify hotspots, benchmark changes, isolate each optimization, format for PR bodies.
-argument-hint: "[focus e.g. 'dissect processor', 'mapstr.Clone', 'event pipeline', or a package path]"
 allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch
+metadata:
+  argument-hint: "[focus e.g. 'dissect processor', 'mapstr.Clone', 'event pipeline', or a package path]"
 ---
 
 # Go Performance Optimization

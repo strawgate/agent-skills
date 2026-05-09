@@ -1,8 +1,9 @@
 ---
 name: resolve-pr-threads
 description: Resolve or unresolve review comment threads on GitHub PRs via GraphQL.
-argument-hint: "[owner/repo#PR_NUMBER e.g. 'PrefectHQ/fastmcp#3827']"
 allowed-tools: Bash Read Grep
+metadata:
+  argument-hint: "[owner/repo#PR_NUMBER e.g. 'PrefectHQ/fastmcp#3827']"
 ---
 
 # Resolve PR Review Threads

@@ -1,8 +1,9 @@
 ---
 name: formal-coverage-audit
 description: Audit formal verification coverage (TLA+/TLC, Kani, proptest), build a traceability matrix, and produce a prioritized plan to close gaps.
-argument-hint: "[optional scope, e.g. 'pipeline only', 'crate logfwd-io', 'new code since PR #1600', 'full repo']"
 allowed-tools: Read Grep Glob Bash Agent Edit Write WebFetch
+metadata:
+  argument-hint: "[optional scope, e.g. 'pipeline only', 'crate logfwd-io', 'new code since PR #1600', 'full repo']"
 ---
 
 # Formal Coverage Audit (TLA+ / Kani / proptest)

@@ -1,8 +1,9 @@
 ---
 name: assign-jules
 description: Assign GitHub issues to Jules, check sessions awaiting feedback, send self-review prompts, or archive completed sessions.
-argument-hint: "[issue numbers] or [questions] or [review ready] or [review SESSION_ID] or [reply SESSION_ID message] or [archive] or [archive --dry-run]"
 allowed-tools: Bash
+metadata:
+  argument-hint: "[issue numbers] or [questions] or [review ready] or [review SESSION_ID] or [reply SESSION_ID message] or [archive] or [archive --dry-run]"
 ---
 
 ## Assign issues

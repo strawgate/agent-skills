@@ -1,8 +1,9 @@
 ---
 name: kani
 description: Write and audit Kani proof harnesses for Rust — exhaustive/bounded proofs, function contracts, compositional verification, solver selection.
-argument-hint: "[function to verify, module path, or 'audit' to audit existing proofs]"
 allowed-tools: Read Grep Glob Bash Agent Edit Write
+metadata:
+  argument-hint: "[function to verify, module path, or 'audit' to audit existing proofs]"
 ---
 
 # Kani Verification for Rust

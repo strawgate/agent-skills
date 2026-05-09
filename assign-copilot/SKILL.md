@@ -1,8 +1,9 @@
 ---
 name: assign-copilot
 description: Assign GitHub issues to Copilot coding agent with a custom agent and model override.
-argument-hint: "[owner/repo #issue1 #issue2 ... or just issue numbers if repo is obvious]"
 allowed-tools: Bash
+metadata:
+  argument-hint: "[owner/repo #issue1 #issue2 ... or just issue numbers if repo is obvious]"
 ---
 
 # Assign Issues to Copilot

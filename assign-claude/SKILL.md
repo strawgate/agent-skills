@@ -1,8 +1,9 @@
 ---
 name: assign-claude
 description: Launch Claude Code cloud sessions via `claude --remote` for prompt files, GitHub issues, or ad-hoc tasks. Supports single and fanout runs.
-argument-hint: "[prompt files/dir, issue numbers, or task description] [--model opus|sonnet] [--dry-run]"
 allowed-tools: Bash Read Glob Grep Write Edit Agent
+metadata:
+  argument-hint: "[prompt files/dir, issue numbers, or task description] [--model opus|sonnet] [--dry-run]"
 ---
 
 # Assign Claude — Launch Cloud Sessions

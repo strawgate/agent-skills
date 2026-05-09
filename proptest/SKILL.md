@@ -1,8 +1,9 @@
 ---
 name: proptest
 description: Write property-based tests with proptest for Rust — strategy design, oracle testing, state machines, shrinking.
-argument-hint: "[target module, property to test, or 'state machine' for stateful testing]"
 allowed-tools: Read Grep Glob Bash Agent Edit Write
+metadata:
+  argument-hint: "[target module, property to test, or 'state machine' for stateful testing]"
 ---
 
 # Proptest for Rust

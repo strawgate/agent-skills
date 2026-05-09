@@ -1,8 +1,9 @@
 ---
 name: follow-the-pr
 description: Poll a PR for review feedback, CI state changes, and merge-readiness until action is needed or it's mergeable.
-argument-hint: "[OWNER/REPO PR_NUMBER or PR_URL, optional poll interval seconds]"
 allowed-tools: Read Grep Glob Bash Edit Write WebFetch
+metadata:
+  argument-hint: "[OWNER/REPO PR_NUMBER or PR_URL, optional poll interval seconds]"
 ---
 
 # Follow The PR

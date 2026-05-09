@@ -1,8 +1,9 @@
 ---
 name: assign-codex-fanin
 description: Collect Codex Cloud task outputs from a fanout run, inspect diffs and artifacts, and synthesize into one recommendation or integration plan.
-argument-hint: "[manifest path or consolidation goal e.g. 'fanout-manifest.json', 'synthesize cloud results for OTLP migration']"
 allowed-tools: Read Grep Glob Bash Edit Write Agent WebSearch WebFetch
+metadata:
+  argument-hint: "[manifest path or consolidation goal e.g. 'fanout-manifest.json', 'synthesize cloud results for OTLP migration']"
 ---
 
 # Assign Codex Fanin

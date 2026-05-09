@@ -1,8 +1,9 @@
 ---
 name: organize-meta-issues
 description: Plan and maintain bite-size meta issues and phased issue trees for bugs, features, and refactors.
-argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent bugs only', 'strawgate/memagent refactors']"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent bugs only', 'strawgate/memagent refactors']"
 ---
 
 # Issue Planner

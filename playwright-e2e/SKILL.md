@@ -1,8 +1,9 @@
 ---
 name: playwright-e2e
 description: Write and run end-to-end Playwright tests to validate frontend UI changes — mock the API, drive the browser, assert what the user would see.
-argument-hint: "[test-file-glob or --new <name>]"
 allowed-tools: Read Edit Write Bash Grep Glob
+metadata:
+  argument-hint: "[test-file-glob or --new <name>]"
 ---
 
 # Playwright E2E

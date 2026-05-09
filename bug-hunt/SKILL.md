@@ -1,8 +1,9 @@
 ---
 name: bug-hunt
 description: Evidence-driven bug hunting. Reproduce one real user-impacting bug with a minimal artifact and write structured findings.
-argument-hint: "[optional: target area, recent change, subsystem, workflow, or bug class]"
 allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch Edit Write
+metadata:
+  argument-hint: "[optional: target area, recent change, subsystem, workflow, or bug class]"
 ---
 
 # Bug Hunt

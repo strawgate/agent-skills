@@ -1,8 +1,9 @@
 ---
 name: burning-down-work-units
 description: Continuously burn down a GitHub work-unit backlog — refresh state, assign cloud tasks, fan-in results, open PRs, fix CI in a loop.
-argument-hint: "[owner/repo and optional scope e.g. 'strawgate/fastforward output sinks', 'current repo next wave']"
 allowed-tools: Read Grep Glob Bash Edit Write Agent
+metadata:
+  argument-hint: "[owner/repo and optional scope e.g. 'strawgate/fastforward output sinks', 'current repo next wave']"
 ---
 
 # Burning Down Work Units

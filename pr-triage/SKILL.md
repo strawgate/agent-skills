@@ -1,8 +1,9 @@
 ---
 name: pr-triage
 description: Triage, review, fix, and manage open PRs for a GitHub repo. NEVER merges without explicit user permission.
-argument-hint: "[owner/repo e.g. 'strawgate/memagent']"
 allowed-tools: Read Grep Glob Bash Edit Write Agent WebSearch WebFetch
+metadata:
+  argument-hint: "[owner/repo e.g. 'strawgate/memagent']"
 ---
 
 # PR Triage

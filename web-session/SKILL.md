@@ -1,8 +1,9 @@
 ---
 name: web-session
 description: Start Claude Code web sessions for GitHub issues — fetch context, craft a prompt, and launch via `claude --remote`.
-argument-hint: "[owner/repo] #issue1 #issue2 ... [--branch <branch>] [--plan] [--autofix]"
 allowed-tools: Bash
+metadata:
+  argument-hint: "[owner/repo] #issue1 #issue2 ... [--branch <branch>] [--plan] [--autofix]"
 ---
 
 # Start Claude Code Web Sessions for GitHub Issues

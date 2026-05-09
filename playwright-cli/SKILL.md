@@ -1,8 +1,9 @@
 ---
 name: playwright-cli
 description: Automate browser interactions with playwright-cli using snapshot-first workflow and stable element references.
-argument-hint: "[URL or task description e.g. 'navigate to localhost:3000 and test login']"
 allowed-tools: Bash
+metadata:
+  argument-hint: "[URL or task description e.g. 'navigate to localhost:3000 and test login']"
 ---
 
 # Browser Automation with playwright-cli

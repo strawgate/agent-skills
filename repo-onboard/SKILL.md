@@ -1,8 +1,9 @@
 ---
 name: repo-onboard
 description: Quickly onboard to a repository — read key docs, understand architecture, recent changes, and open work.
-argument-hint: "[optional focus area e.g. 'pipeline', 'CI', 'tests']"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[optional focus area e.g. 'pipeline', 'CI', 'tests']"
 ---
 
 # Repo Onboard

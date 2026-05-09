@@ -1,8 +1,9 @@
 ---
 name: research
 description: Deep research into a library, pattern, or technique — search the web, read docs, explore source, produce an actionable report.
-argument-hint: "[topic e.g. 'arrow IPC compression', 'jemalloc vs mimalloc', 'how does X project handle Y']"
 allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch
+metadata:
+  argument-hint: "[topic e.g. 'arrow IPC compression', 'jemalloc vs mimalloc', 'how does X project handle Y']"
 ---
 
 # Research

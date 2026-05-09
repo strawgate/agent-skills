@@ -1,8 +1,9 @@
 ---
 name: refresh-yourself
 description: Rebuild context after time away — snapshot recent PRs/issues, commits, and local layout, then investigate drift.
-argument-hint: "[optional: --commit-limit 80 --pr-limit 50 --issue-limit 50]"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[optional: --commit-limit 80 --pr-limit 50 --issue-limit 50]"
 ---
 
 # Refresh Yourself

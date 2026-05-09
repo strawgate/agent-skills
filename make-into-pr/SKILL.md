@@ -1,8 +1,9 @@
 ---
 name: make-into-pr
 description: Turn a local change into a high-confidence PR — rigorous self-review, tests, create PR, then follow until merged.
-argument-hint: "[optional owner/repo, branch/base, or PR title hints]"
 allowed-tools: Read Grep Glob Bash Edit Write WebFetch WebSearch Agent
+metadata:
+  argument-hint: "[optional owner/repo, branch/base, or PR title hints]"
 ---
 
 # Make Into PR

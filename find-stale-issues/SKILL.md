@@ -1,8 +1,9 @@
 ---
 name: find-stale-issues
 description: Audit open GitHub issues against PRs and codebase to find stale, resolved, duplicate, and overlapping issues.
-argument-hint: "[owner/repo and optional scope e.g. 'strawgate/logfwd', 'strawgate/logfwd label:bug', 'strawgate/logfwd since 2025-01-01']"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[owner/repo and optional scope e.g. 'strawgate/logfwd', 'strawgate/logfwd label:bug', 'strawgate/logfwd since 2025-01-01']"
 ---
 
 # Issue Audit

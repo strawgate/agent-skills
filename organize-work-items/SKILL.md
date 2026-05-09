@@ -1,8 +1,9 @@
 ---
 name: organize-work-items
 description: Create and maintain work-unit issues — scheduling metas that bundle low-discretion, low-conflict work for one agent run.
-argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent elasticsearch', 'strawgate/memagent pipeline.rs']"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent elasticsearch', 'strawgate/memagent pipeline.rs']"
 ---
 
 # Work Unit Planner

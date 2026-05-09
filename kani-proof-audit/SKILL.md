@@ -1,8 +1,9 @@
 ---
 name: kani-proof-audit
 description: Audit all Kani proofs for a Rust project — catalog harnesses, identify coverage gaps, and produce an actionable report.
-argument-hint: "[optional scope e.g. 'otlp.rs only', 'new proofs since last audit', 'focus on gaps']"
 allowed-tools: Read Grep Glob Bash Agent WebFetch
+metadata:
+  argument-hint: "[optional scope e.g. 'otlp.rs only', 'new proofs since last audit', 'focus on gaps']"
 ---
 
 # Kani Proof Audit

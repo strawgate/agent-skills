@@ -1,8 +1,9 @@
 ---
 name: transcript-audit
 description: Review real agent transcripts to discover skill gaps, failure patterns, and propose improvements.
-argument-hint: "[optional: agent name, date range, or focus area]"
 allowed-tools: Read Grep Glob Bash Agent
+metadata:
+  argument-hint: "[optional: agent name, date range, or focus area]"
 ---
 
 # Transcript Audit Skill
