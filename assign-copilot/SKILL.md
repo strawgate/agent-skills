@@ -1,7 +1,7 @@
 ---
 name: assign-copilot
-description: Assign GitHub issues to Copilot coding agent with Claude Opus 4.6 and a custom agent. Use when the user says "assign to copilot", "give to copilot", "copilot this issue", or "assign-copilot".
-argument-hint: [owner/repo #issue1 #issue2 ... or just issue numbers if repo is obvious]
+description: Assign GitHub issues to Copilot coding agent with a custom agent and model override.
+argument-hint: "[owner/repo #issue1 #issue2 ... or just issue numbers if repo is obvious]"
 allowed-tools: Bash
 ---
 
@@ -18,22 +18,12 @@ Parse `$ARGUMENTS` for:
 ## Step 1: Run the assignment script
 
 ```bash
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-"$SKILL_DIR/scripts/assign-to-copilot.sh" OWNER/REPO ISSUE_NUM1 ISSUE_NUM2 ...
+"${CLAUDE_SKILL_DIR}/scripts/assign-to-copilot.sh" OWNER/REPO ISSUE_NUM1 ISSUE_NUM2 ...
 ```
 
 Optional flags:
 - `--agent AGENT_NAME` — override the auto-detected custom agent
 - `--model MODEL` — override the default model (default: `claude-opus-4.6`)
-
-The script:
-1. Gets the repo `node_id` via **REST** (saves a GraphQL call)
-2. Gets the Copilot bot ID via GraphQL (no REST equivalent)
-3. Auto-detects custom agents from `.github/agents/` via **REST**
-4. Gets each issue's `node_id` via **REST** (saves 1 GraphQL call per issue)
-5. Assigns via the `updateIssue` GraphQL mutation (no REST equivalent for `agentAssignment`)
-
-**Net result**: Only 2 GraphQL calls total (1 for bot ID + 1 per issue for assignment), down from 3+N.
 
 ## Step 2: Confirm
 

@@ -1,6 +1,7 @@
 ---
 name: playwright-cli
-description: Automate browser interactions using Microsoft's playwright-cli. Uses snapshot-first workflow with element references instead of CSS selectors. Use when the user says "browser automation", "interact with a page", "test a web page", or "fill out a form".
+description: Automate browser interactions with playwright-cli using snapshot-first workflow and stable element references.
+argument-hint: "[URL or task description e.g. 'navigate to localhost:3000 and test login']"
 allowed-tools: Bash
 ---
 

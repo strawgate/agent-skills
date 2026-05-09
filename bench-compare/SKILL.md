@@ -1,8 +1,8 @@
 ---
 name: bench-compare
-description: Run benchmarks, compare against a baseline (branch/commit/previous run), and format results for PR bodies. Use when the user says "benchmark", "bench", "compare performance", "how fast is it", or "bench-compare".
-argument-hint: [optional baseline e.g. "main", "HEAD~1", or benchmark filter]
-allowed-tools: Bash, Read, Grep, Glob, Agent
+description: Run benchmarks, compare against a baseline (branch/commit/previous run), and format results for PR bodies.
+argument-hint: "[optional baseline e.g. 'main', 'HEAD~1', or benchmark filter]"
+allowed-tools: Bash Read Grep Glob Agent
 ---
 
 # Benchmark Compare

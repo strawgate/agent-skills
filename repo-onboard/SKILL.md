@@ -1,8 +1,8 @@
 ---
 name: repo-onboard
-description: Quickly onboard to a repository by reading all key docs, understanding architecture, recent changes, and open work. Use when the user says "come up to speed", "onboard", "review the project", "what's the state of things", or "catch me up".
-argument-hint: [optional focus area e.g. "pipeline", "CI", "tests"]
-allowed-tools: Read, Grep, Glob, Bash, Agent
+description: Quickly onboard to a repository — read key docs, understand architecture, recent changes, and open work.
+argument-hint: "[optional focus area e.g. 'pipeline', 'CI', 'tests']"
+allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Repo Onboard
@@ -26,7 +26,7 @@ ls -la
 cat Cargo.toml 2>/dev/null || cat package.json 2>/dev/null || cat pyproject.toml 2>/dev/null || cat go.mod 2>/dev/null
 
 # Directory structure (depth 2)
-find . -maxdepth 2 -type f -name "*.rs" -o -name "*.ts" -o -name "*.go" -o -name "*.py" | head -50
+find . -maxdepth 2 -type f \( -name "*.rs" -o -name "*.ts" -o -name "*.go" -o -name "*.py" \) | head -50
 ```
 
 ## Phase 3: Recent Activity

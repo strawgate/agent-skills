@@ -1,11 +1,8 @@
 ---
 name: kani-proof-audit
-description: Audit Kani formal verification proofs for a Rust project. Reads project docs, understands architecture, catalogs every proof, identifies gaps, and produces an actionable audit report. Use when the user says "proof audit", "kani audit", "verify proofs", "audit proofs", or "kani-proof-audit". NOTE: This skill is pre-configured for the logfwd project; see template section for adapting to other projects.
-argument-hint: [optional scope e.g. "otlp.rs only", "new proofs since last audit", "focus on gaps"]
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebFetch
-context: fork
-agent: general-purpose
-effort: thorough
+description: Audit all Kani proofs for a Rust project — catalog harnesses, identify coverage gaps, and produce an actionable report.
+argument-hint: "[optional scope e.g. 'otlp.rs only', 'new proofs since last audit', 'focus on gaps']"
+allowed-tools: Read Grep Glob Bash Agent WebFetch
 ---
 
 # Kani Proof Audit

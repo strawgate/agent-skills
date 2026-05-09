@@ -1,9 +1,8 @@
 ---
 name: burning-down-work-units
-description: Continuously burn down a GitHub work-unit backlog by refreshing repo state, researching unclear issues, grouping or closing stale items, assigning Codex Cloud tasks, fanning in results, promoting ready work to PRs, and fixing PR feedback/CI in a loop.
+description: Continuously burn down a GitHub work-unit backlog — refresh state, assign cloud tasks, fan-in results, open PRs, fix CI in a loop.
 argument-hint: "[owner/repo and optional scope e.g. 'strawgate/fastforward output sinks', 'current repo next wave']"
-user-invocable: true
-disable-model-invocation: false
+allowed-tools: Read Grep Glob Bash Edit Write Agent
 ---
 
 # Burning Down Work Units
@@ -59,9 +58,11 @@ gh pr list --repo OWNER/REPO --state open --limit 100
 If the repo has issue/work-unit organizer scripts, use them:
 
 ```bash
-~/.claude/skills/organize-work-items/scripts/fetch-repo-data.sh OWNER/REPO
-~/.claude/skills/organize-work-items/scripts/summarize-meta-structure.sh OWNER/REPO
-~/.claude/skills/organize-work-items/scripts/summarize-work-unit-structure.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+python3 ${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../organize-work-items/scripts/summarize-meta-structure.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/../organize-work-items/scripts/summarize-work-unit-structure.sh OWNER/REPO
 ```
 
 Read:
@@ -95,7 +96,7 @@ Also read review bodies and bot summaries, not only unresolved threads. CodeRabb
 For every active fanout manifest:
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanin/scripts/collect-cloud-artifacts.py PATH/TO/fanout-manifest.json
+python3 ${CLAUDE_SKILL_DIR}/../assign-codex-fanin/scripts/collect-cloud-artifacts.py PATH/TO/fanout-manifest.json
 ```
 
 For each task:
@@ -198,7 +199,7 @@ Prompt requirements:
 Launch:
 
 ```bash
-python3 ~/.claude/skills/assign-codex-fanout/scripts/launch-cloud-fanout.py \
+python3 ${CLAUDE_SKILL_DIR}/../assign-codex-fanout/scripts/launch-cloud-fanout.py \
   --cwd "$PWD" \
   --prompt PATH/TO/prompt.md \
   --branch main \
@@ -269,7 +270,6 @@ gh issue edit ISSUE --repo OWNER/REPO --body-file /tmp/body.md
 gh pr view PR --repo OWNER/REPO --json number,title,body,headRefName,headRefOid,url
 gh pr checks PR --repo OWNER/REPO --watch=false
 gh run view RUN_ID --job JOB_ID --repo OWNER/REPO --log-failed
-python3 scripts/check_max_source_lines.py
 just fmt
 just ci
 ```

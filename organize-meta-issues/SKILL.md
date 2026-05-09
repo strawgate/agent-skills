@@ -1,9 +1,8 @@
 ---
 name: organize-meta-issues
-description: Plan and maintain bite-size meta issues and phased issue trees for bugs, features, and refactors. Use when the user says "organize meta issues", "issue planner", "plan metas", "bite-size metas", "group issues", "phase this work", "maintain issue structure", or "organize issues for copilot".
+description: Plan and maintain bite-size meta issues and phased issue trees for bugs, features, and refactors.
 argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent bugs only', 'strawgate/memagent refactors']"
-user-invocable: true
-disable-model-invocation: false
+allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Issue Planner
@@ -18,11 +17,8 @@ Use this skill after an audit or when the repo's issue tree has become messy.
 
 ## Scripts
 
-- [Fetch repo issue/PR data](${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh)
 - [Summarize existing meta structure](${CLAUDE_SKILL_DIR}/scripts/summarize-meta-structure.sh)
-
-`fetch-repo-data.sh` delegates to the shared inventory script at
-`../_shared/github-repo-inventory/scripts/fetch-repo-data.sh`.
+- [gh-issues](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues) / [gh-prs](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs)
 
 ## Step 0: Determine Repo and Scope
 
@@ -61,21 +57,16 @@ If a prior audit exists, read it too.
 
 ## Step 2: Fetch GitHub Data
 
-Run the data fetch script to collect the issue and PR inventory:
-
 ```bash
-${CLAUDE_SKILL_DIR}/scripts/fetch-repo-data.sh OWNER/REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
 ```
 
-This writes a timestamped directory under `/tmp/issue-organizer/OWNER__REPO/` containing:
+Then convert to records for the structure summarizer:
 
-- `open-issues.json`
-- `open-prs.json`
-- `merged-prs.json`
-- `closed-prs.json`
-- `labels.json`
-- `repo.json`
-- `summary.txt`
+```bash
+python3 ${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py /tmp/gh-triage/OWNER__REPO
+```
 
 ## Step 3: Map Existing Metas and Orphans
 

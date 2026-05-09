@@ -1,9 +1,8 @@
 ---
 name: assign-claude
-description: Launch Claude Code cloud sessions for prompt files, GitHub issues, or ad-hoc tasks via `claude --remote`. Supports single runs and fanout across multiple prompts. Use when the user says "assign to claude", "cloud session", "assign-claude", "claude fanout", or "launch cloud".
+description: Launch Claude Code cloud sessions via `claude --remote` for prompt files, GitHub issues, or ad-hoc tasks. Supports single and fanout runs.
 argument-hint: "[prompt files/dir, issue numbers, or task description] [--model opus|sonnet] [--dry-run]"
-user-invocable: true
-allowed-tools: Bash, Read, Glob, Grep, Write, Edit, Agent
+allowed-tools: Bash Read Glob Grep Write Edit Agent
 ---
 
 # Assign Claude — Launch Cloud Sessions
@@ -57,8 +56,7 @@ If arguments include `.md` files or a directory:
 
 For each issue number, use the shared issue-to-prompt builder:
 ```bash
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-PROMPT=$("$SKILL_DIR/../_shared/github-issue-prompt/scripts/build-issue-prompt.sh" \
+PROMPT=$("${CLAUDE_SKILL_DIR}/../_shared/github-issue-prompt/scripts/build-issue-prompt.sh" \
   OWNER/REPO ISSUE_NUM --agent-name claude)
 ```
 

@@ -1,8 +1,8 @@
 ---
 name: proptest
-description: Write effective property-based tests with proptest for Rust. Covers strategy design, oracle testing, state machine testing, shrinking, and integration with fuzz/formal verification. Use when the user says "proptest", "property test", "property-based", "stateful test", "fuzz test", or "write proptests".
-argument-hint: [target module, property to test, or "state machine" for stateful testing]
-allowed-tools: Read, Grep, Glob, Bash, Agent, Edit, Write
+description: Write property-based tests with proptest for Rust — strategy design, oracle testing, state machines, shrinking.
+argument-hint: "[target module, property to test, or 'state machine' for stateful testing]"
+allowed-tools: Read Grep Glob Bash Agent Edit Write
 ---
 
 # Proptest for Rust

@@ -1,8 +1,8 @@
 ---
 name: sweeper
-description: Exhaustively find all instances of a specific bug or anti-pattern across a codebase and file a comprehensive report. Use when the user says "sweep", "find all instances", or "exhaustive search".
-argument-hint: [bug or anti-pattern to search for]
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent, WebFetch
+description: Exhaustively find all instances of a specific bug or anti-pattern across a codebase and file a comprehensive report.
+argument-hint: "[bug or anti-pattern to search for]"
+allowed-tools: Read Grep Glob Bash Edit Write Agent WebFetch
 ---
 
 # Sweeper — Exhaustive Codebase Search

@@ -1,8 +1,8 @@
 ---
 name: pr-triage
-description: Triage, review, fix, and manage open PRs for a GitHub repo. Use when the user says "loop through PRs", "review PRs", "check PRs", "triage PRs", or "pr triage". NEVER merges without explicit user permission.
-argument-hint: [owner/repo e.g. "strawgate/memagent"]
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent, WebSearch, WebFetch
+description: Triage, review, fix, and manage open PRs for a GitHub repo. NEVER merges without explicit user permission.
+argument-hint: "[owner/repo e.g. 'strawgate/memagent']"
+allowed-tools: Read Grep Glob Bash Edit Write Agent WebSearch WebFetch
 ---
 
 # PR Triage
@@ -15,23 +15,29 @@ Triage all open PRs, review code, fix issues, and prepare for merge.
 
 ## Scripts
 
-Uses Python CLI via `uv run` from the unified gh-triage package:
+### Data fetching (shared gh-triage wrappers)
 
 ```bash
 # Overview: all PRs in one table (~1 GraphQL point)
-uv run gh-triage prs OWNER/REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs OWNER/REPO
 
 # Per-PR details: metadata, threads, comments, reviews, diff (1 GraphQL point + REST free)
-uv run gh-triage pr-details OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-pr-details OWNER/REPO PR_NUMBER
 
 # Context bundle for follow-through
-uv run gh-triage pr-context OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-pr-context OWNER/REPO PR_NUMBER
 ```
+
+### Local helpers
+
+- [build-merge-checklist.sh](${CLAUDE_SKILL_DIR}/scripts/build-merge-checklist.sh) — reads a PR bundle dir and emits a merge-readiness checklist
+- [mark-pr-in-progress.sh](${CLAUDE_SKILL_DIR}/scripts/mark-pr-in-progress.sh) — claim a PR so other agents skip it
+- [unmark-pr-in-progress.sh](${CLAUDE_SKILL_DIR}/scripts/unmark-pr-in-progress.sh) — release the claim
 
 ## Step 1: Fetch Overview
 
 ```bash
-uv run gh-triage prs OWNER/REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs OWNER/REPO
 ```
 
 This shows a table with all open PRs (CI status, threads, comments, +L/-L).
@@ -59,7 +65,7 @@ This shows a table with all open PRs (CI status, threads, comments, +L/-L).
 For PRs needing work:
 
 ```bash
-uv run gh-triage pr-details OWNER/REPO PR_NUMBER
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-pr-details OWNER/REPO PR_NUMBER
 ```
 
 This fetches:
@@ -113,115 +119,22 @@ Then **ask user** which to merge.
 └── prs-merged/            # Archived merged PRs
 ```
 
-## Fetching Check Run Details and Annotations
-
-### Two Approaches
-
-**GraphQL (recommended for summaries/title)** - Get summary info directly on CheckRun object
-**REST (recommended for annotations)** - More detailed annotation data including raw_details, blob_href, title
-
-### Step 1: Get Check Runs via GraphQL
-
-```bash
-gh api graphql -f query='
-{
-  repository(owner: "OWNER", name: "REPO") {
-    pullRequest(number: PR_NUMBER) {
-      commits(last: 1) {
-        nodes {
-          commit {
-            checkSuites(first: 10) {
-              nodes {
-                checkRuns(first: 20) {
-                  nodes {
-                    name
-                    status
-                    conclusion
-                    databaseId
-                    summary
-                    title
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}' --jq '.data.repository.pullRequest.commits.nodes[].commit.checkSuites.nodes[].checkRuns.nodes[] | "\(.databaseId) \(.name): \(.conclusion // .status) — \(.title // "")"'
-```
-
-This returns lines like: `74448216645 preview: FAILURE —`
-
-### Step 2: For Annotations (REST)
-
-GitHub Actions checks use annotations with detailed file/line info:
-
-```bash
-# Get annotations (includes raw_details, blob_href, title - more than GraphQL)
-gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID/annotations
-```
-
-Annotation fields:
-- `path` - file path
-- `annotation_level` - "notice", "warning", or "failure"
-- `message` - the annotation message
-- `raw_details` - additional details
-- `start_line` / `end_line` - line numbers
-- `blob_href` - URL to file in commit
-
-### Example: Fetch All Failed Check Annotations
-
-```bash
-REPO="strawgate/o11yfleet"
-PR_NUM="850"
-
-# Get all failed check run IDs and their names
-gh api graphql -f query="
-{
-  repository(owner: \"strawgate\", name: \"o11yfleet\") {
-    pullRequest(number: $PR_NUM) {
-      commits(last: 1) {
-        nodes {
-          commit {
-            checkSuites(first: 10) {
-              nodes {
-                checkRuns(first: 20) {
-                  nodes {
-                    name
-                    conclusion
-                    databaseId
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}" --jq '.data.repository.pullRequest.commits.nodes[].commit.checkSuites.nodes[].checkRuns.nodes[] | select(.conclusion == "FAILURE") | "\(.databaseId) \(.name)"' | while read -r id name; do
-  echo "=== $name (ID: $id) ==="
-  gh api repos/strawgate/o11yfleet/check-runs/$id/annotations 2>/dev/null | jq -r '.[] | "[\(.annotation_level)] \(.path):\(.start_line): \(.message)"'
-done
-```
-
-### Quick Check: View PR Checks Summary
+## Fetching Check Run Details
 
 ```bash
 # Simple summary of all checks
-gh pr checks PR_NUMBER
+gh pr checks PR_NUMBER --repo OWNER/REPO
 
-# Get checks with JSON (includes job IDs for logs)
-gh pr checks PR_NUMBER --json name,status,conclusion,databaseId
+# Get checks with JSON
+gh pr checks PR_NUMBER --repo OWNER/REPO --json name,status,conclusion,databaseId
+
+# Get annotations for a specific failed check run (REST, free)
+gh api repos/OWNER/REPO/check-runs/CHECK_RUN_ID/annotations
 ```
 
-## PR Rocket Checks (pr-rocket)
+Annotation fields: `path`, `annotation_level` (notice/warning/failure), `message`, `start_line`/`end_line`, `blob_href`.
 
-PR Rocket runs additional checks like: `test-coverage`, `docs-freshness`, `security-basics`, `no-anti-patterns`, `breaking-changes`, `performance`.
-
-### Finding PR Rocket Check IDs
+To find check run IDs for failed checks:
 
 ```bash
 gh api graphql -f query='
@@ -233,43 +146,11 @@ gh api graphql -f query='
           commit {
             checkSuites(first: 10) {
               nodes {
-                checkRuns(first: 30) {
+                checkRuns(first: 20) {
                   nodes {
                     name
-                    status
                     conclusion
                     databaseId
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}' --jq '.data.repository.pullRequest.commits.nodes[].commit.checkSuites.nodes[].checkRuns.nodes[] | select(.name | test("^PR Rocket"; "i")) | "\(.databaseId) \(.name): \(.conclusion // .status)"'
-```
-
-### Getting PR Rocket Check Details
-
-PR Rocket checks use `summary` and `title` fields directly on CheckRun (GraphQL has these natively):
-
-```bash
-# Get all PR Rocket checks with summary/title via GraphQL
-gh api graphql -f query="
-{
-  repository(owner: \"OWNER\", name: \"REPO\") {
-    pullRequest(number: PR_NUMBER) {
-      commits(last: 1) {
-        nodes {
-          commit {
-            checkSuites(first: 10) {
-              nodes {
-                checkRuns(first: 30) {
-                  nodes {
-                    name
-                    conclusion
                     title
                     summary
                   }
@@ -281,11 +162,5 @@ gh api graphql -f query="
       }
     }
   }
-}" --jq '.data.repository.pullRequest.commits.nodes[].commit.checkSuites.nodes[].checkRuns.nodes[] | select(.name | test("^PR Rocket"; "i")) | "\(.name): \(.conclusion) — \(.title // "")\n\(.summary[0:200])"'
-```
-
-Example output:
-```
-PR Rocket: no-anti-patterns: SUCCESS — No issues found
-This diff only changes property access syntax from dot notation to bracket notation. Both `env?.OTEL_EXPORTER_URL` and `env?.["OTEL_EXPORTER_URL"]` are semantically identical for static property names...
+}' --jq '.data.repository.pullRequest.commits.nodes[].commit.checkSuites.nodes[].checkRuns.nodes[] | select(.conclusion == "FAILURE") | "\(.databaseId) \(.name): \(.title // "")"'
 ```

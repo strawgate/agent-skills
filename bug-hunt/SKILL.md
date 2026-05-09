@@ -1,10 +1,8 @@
 ---
 name: bug-hunt
-description: Generic, evidence-driven bug hunting for any repository. Coordinate multiple agents through a shared results directory, avoid duplicate work, reproduce one real user-impacting bug with a new minimal artifact, and write structured findings that can become issues or fixes. Use when the user says "bug hunt", "find bugs", "hunt bugs", or "bug-hunt".
+description: Evidence-driven bug hunting. Reproduce one real user-impacting bug with a minimal artifact and write structured findings.
 argument-hint: "[optional: target area, recent change, subsystem, workflow, or bug class]"
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebSearch, WebFetch, TaskCreate, TaskUpdate, Edit, Write
-context: fork
-effort: high
+allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch Edit Write
 ---
 
 # Bug Hunt

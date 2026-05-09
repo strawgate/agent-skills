@@ -1,6 +1,6 @@
 ---
 name: assign-jules
-description: Assign GitHub issues to Jules (Google's coding agent), check for Jules sessions awaiting user feedback, send self-review prompts to completed sessions, or archive sessions with merged/closed PRs. Use when the user says "assign to jules", "give to jules", "jules this issue", "assign-jules", "review ready", "archive jules sessions", "clean up jules", or "check jules questions". For issue assignment, require the API-key flow so Jules can auto-create a PR; never use the CLI fallback that requires manual PR publishing.
+description: Assign GitHub issues to Jules, check sessions awaiting feedback, send self-review prompts, or archive completed sessions.
 argument-hint: "[issue numbers] or [questions] or [review ready] or [review SESSION_ID] or [reply SESSION_ID message] or [archive] or [archive --dry-run]"
 allowed-tools: Bash
 ---

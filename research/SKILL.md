@@ -1,11 +1,8 @@
 ---
 name: research
-description: Deep research into a library, pattern, technique, or codebase question. Searches the web, reads docs, explores source code, and produces an actionable report. Use when the user says "research", "investigate", "look into", "dig into", "what can we learn from".
-argument-hint: [topic e.g. "arrow IPC compression", "jemalloc vs mimalloc", "how does X project handle Y"]
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebSearch, WebFetch
-context: fork
-agent: Explore
-effort: high
+description: Deep research into a library, pattern, or technique — search the web, read docs, explore source, produce an actionable report.
+argument-hint: "[topic e.g. 'arrow IPC compression', 'jemalloc vs mimalloc', 'how does X project handle Y']"
+allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch
 ---
 
 # Research

@@ -1,8 +1,8 @@
 ---
 name: follow-the-pr
-description: Follow a PR after you push it by polling for new review feedback, comments, CI state changes, and merge-readiness. Use when the user says "follow the PR", "watch this PR", "poll this PR", or wants the agent that opened a PR to keep tracking it until mergeable.
-argument-hint: [OWNER/REPO PR_NUMBER or PR_URL, optional poll interval seconds]
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch
+description: Poll a PR for review feedback, CI state changes, and merge-readiness until action is needed or it's mergeable.
+argument-hint: "[OWNER/REPO PR_NUMBER or PR_URL, optional poll interval seconds]"
+allowed-tools: Read Grep Glob Bash Edit Write WebFetch
 ---
 
 # Follow The PR
@@ -23,7 +23,7 @@ The skill should:
 ## Scripts
 
 - [Wait for PR activity](${CLAUDE_SKILL_DIR}/scripts/wait-for-pr-activity.sh)
-- Uses `uv run gh-triage pr-context` for context refresh (from [gh-triage](../_shared/gh-triage))
+- Uses `${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-pr-context` for context refresh
 
 ## Inputs
 

@@ -1,9 +1,8 @@
 ---
 name: kani
-description: Write and audit Kani proof harnesses for Rust. Covers exhaustive vs bounded proofs, function contracts, compositional verification, solver selection, vacuity detection, and integration with proptest/bolero. Use when the user says "kani", "kani proof", "formal verification", "bounded model check", "write a proof", or "verify this function".
-argument-hint: [function to verify, module path, or "audit" to audit existing proofs]
-allowed-tools: Read, Grep, Glob, Bash, Agent, Edit, Write
-effort: high
+description: Write and audit Kani proof harnesses for Rust — exhaustive/bounded proofs, function contracts, compositional verification, solver selection.
+argument-hint: "[function to verify, module path, or 'audit' to audit existing proofs]"
+allowed-tools: Read Grep Glob Bash Agent Edit Write
 ---
 
 # Kani Verification for Rust

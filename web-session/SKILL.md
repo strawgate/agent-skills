@@ -1,6 +1,6 @@
 ---
 name: web-session
-description: Start Claude Code web sessions for GitHub issues. Fetches issue context, crafts a prompt, and launches a cloud session via `claude --remote`. Use when the user says "web session", "cloud session", "remote session", "send to web", "send to cloud", or "web-session".
+description: Start Claude Code web sessions for GitHub issues — fetch context, craft a prompt, and launch via `claude --remote`.
 argument-hint: "[owner/repo] #issue1 #issue2 ... [--branch <branch>] [--plan] [--autofix]"
 allowed-tools: Bash
 ---
@@ -36,8 +36,7 @@ If either fails, tell the user what's missing and stop.
 For each issue, use the shared issue-to-prompt builder:
 
 ```bash
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-PROMPT=$("$SKILL_DIR/../_shared/github-issue-prompt/scripts/build-issue-prompt.sh" \
+PROMPT=$("${CLAUDE_SKILL_DIR}/../_shared/github-issue-prompt/scripts/build-issue-prompt.sh" \
   OWNER/REPO ISSUE_NUM --agent-name claude --max-body 2000)
 ```
 

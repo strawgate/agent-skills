@@ -12,7 +12,10 @@ out_dir="${2:-/tmp/issue-organizer/${repo//\//__}}"
 issues_file="$out_dir/open-issues.json"
 
 if [[ ! -f "$issues_file" ]]; then
-  "$(dirname "$0")/fetch-repo-data.sh" "$repo" "$out_dir" >/dev/null
+  triage_out="/tmp/gh-triage/${repo//\//__}"
+  "$(dirname "$0")/../../_shared/gh-triage/scripts/gh-issues" "$repo" -o "$triage_out" >/dev/null
+  mkdir -p "$out_dir"
+  cp "$triage_out/open-issues.json" "$issues_file"
 fi
 
 python3 - "$issues_file" "$out_dir/work-units.json" "$out_dir/work-unit-links.tsv" "$out_dir/unassigned-open-issues.json" "$out_dir/work-unit-summary.md" <<'PY'

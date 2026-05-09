@@ -1,8 +1,8 @@
 ---
 name: assign-codex-fanout
-description: Split a large repo task into workstreams, create prompt files, and launch one Codex Cloud task per workstream with multiple attempts. Use for research fanout, implementation fanout, prototyping, audits, or benchmark investigations.
-argument-hint: [topic or execution goal e.g. "library adoption", "benchmark 3 serializer paths", "prototype OTAP shared types"]
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent, WebSearch, WebFetch
+description: Split a large repo task into parallel workstreams and launch one Codex Cloud task per workstream with multiple attempts.
+argument-hint: "[topic or execution goal e.g. 'library adoption', 'benchmark 3 serializer paths', 'prototype OTAP shared types']"
+allowed-tools: Read Grep Glob Bash Edit Write Agent WebSearch WebFetch
 ---
 
 # Assign Codex Fanout

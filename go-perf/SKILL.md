@@ -1,9 +1,8 @@
 ---
 name: go-perf
-description: Go performance optimization workflow — profile, identify allocation/clone hotspots, benchmark changes, isolate each optimization's contribution, and format results for PR bodies. Use when working on Go performance, profiling, pprof, benchmarks, allocation reduction, or Clone() elimination.
-argument-hint: [focus e.g. "dissect processor", "mapstr.Clone", "event pipeline", or a package path]
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebSearch, WebFetch
-effort: high
+description: Go performance optimization — profile with pprof, identify hotspots, benchmark changes, isolate each optimization, format for PR bodies.
+argument-hint: "[focus e.g. 'dissect processor', 'mapstr.Clone', 'event pipeline', or a package path]"
+allowed-tools: Read Grep Glob Bash Agent WebSearch WebFetch
 ---
 
 # Go Performance Optimization

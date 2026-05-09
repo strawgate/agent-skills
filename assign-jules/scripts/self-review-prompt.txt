@@ -33,9 +33,8 @@ Check each category and report what you find:
 - If you added a new public item, does it have a /// doc comment?
 
 ## 6. Build and lint
-- Run: cargo build --workspace
-- Run: cargo clippy --workspace -- -D warnings
-- Run: cargo fmt --all --check
+- Check AGENTS.md for the project's build, lint, and test commands.
+- Run the equivalent of the project's CI pipeline locally.
 - Fix anything that fails before submitting.
 
 ## 7. PR readiness

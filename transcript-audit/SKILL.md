@@ -1,3 +1,10 @@
+---
+name: transcript-audit
+description: Review real agent transcripts to discover skill gaps, failure patterns, and propose improvements.
+argument-hint: "[optional: agent name, date range, or focus area]"
+allowed-tools: Read Grep Glob Bash Agent
+---
+
 # Transcript Audit Skill
 
 Use real agent conversations to discover skill gaps and propose improvements.
@@ -37,26 +44,26 @@ When you run this skill:
 ### find-transcripts.sh
 Locate all transcript files on the system:
 ```bash
-~/.claude/skills/transcript-audit/scripts/find-transcripts.sh
+${CLAUDE_SKILL_DIR}/scripts/find-transcripts.sh
 ```
 
 ### extract-opencode.py <output_dir>
 Extract recent OpenCode prompts to a directory:
 ```bash
-uv run python ~/.claude/skills/transcript-audit/scripts/extract-opencode.py /tmp/transcripts/opencode
+uv run python ${CLAUDE_SKILL_DIR}/scripts/extract-opencode.py /tmp/transcripts/opencode
 ```
 
 ### extract-cline.py <output_dir>
 Extract Cline/Copilot conversations:
 ```bash
-uv run python ~/.claude/skills/transcript-audit/scripts/extract-cline.py /tmp/transcripts/cline
+uv run python ${CLAUDE_SKILL_DIR}/scripts/extract-cline.py /tmp/transcripts/cline
 ```
 
 ### sample-transcripts.py <source> <count>
 Get random sample of transcripts for analysis:
 ```bash
-uv run python ~/.claude/skills/transcript-audit/scripts/sample-transcripts.py opencode 20
-uv run python ~/.claude/skills/transcript-audit/scripts/sample-transcripts.py cline 10
+uv run python ${CLAUDE_SKILL_DIR}/scripts/sample-transcripts.py opencode 20
+uv run python ${CLAUDE_SKILL_DIR}/scripts/sample-transcripts.py cline 10
 ```
 
 ## Analysis Framework

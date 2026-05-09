@@ -1,9 +1,8 @@
 ---
 name: tla-audit
-description: Audit TLA+ / TLC specifications for correctness, completeness, and real-world fidelity. Checks variable priming, property strength, fairness, state space coverage, abstraction gaps, and liveness. Use when the user says "TLA audit", "check my TLA spec", "TLC audit", "audit the spec", or "tla-audit".
-argument-hint: [path to .tla file or directory, optional focus e.g. "liveness only", "compare to code"]
-allowed-tools: Read, Grep, Glob, Bash, Agent, WebFetch
-effort: thorough
+description: Audit TLA+/TLC specifications for correctness, completeness, and real-world fidelity — variable priming, property strength, fairness, liveness.
+argument-hint: "[path to .tla file or directory, optional focus e.g. 'liveness only', 'compare to code']"
+allowed-tools: Read Grep Glob Bash Agent WebFetch
 ---
 
 # TLA+ Specification Audit

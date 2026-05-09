@@ -1,9 +1,8 @@
 ---
 name: organize-work-items
-description: "Create and maintain work-unit issues: opinionated scheduling metas labeled work-unit that bundle low-discretion, low-conflict repo-local work for one agent run. Use when the user says organize work items, work unit, work-unit, scheduling issue, assignable batch, by-reference meta, or agent-sized batch."
+description: Create and maintain work-unit issues — scheduling metas that bundle low-discretion, low-conflict work for one agent run.
 argument-hint: "[owner/repo and optional scope e.g. 'strawgate/memagent', 'strawgate/memagent elasticsearch', 'strawgate/memagent pipeline.rs']"
-user-invocable: true
-disable-model-invocation: false
+allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Work Unit Planner
@@ -32,8 +31,11 @@ That means:
 
 ## Scripts
 
-- [Fetch issues via gh-triage](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/pyproject.toml)
-- [Build semantic indexes](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh)
+- [gh-issues](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues) — fetch all open issues
+- [gh-prs](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs) — fetch all open PRs
+- [gh-triage-to-records.py](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py) — convert JSON to text records
+- [build-semantic-index.sh](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh) — build similarity indexes
+- [summarize-work-unit-structure.sh](${CLAUDE_SKILL_DIR}/scripts/summarize-work-unit-structure.sh) — summarize existing work-unit structure
 
 ## Step 0: Determine Repo and Scope
 
@@ -69,8 +71,8 @@ If an issue audit or planning doc exists, read it first.
 ## Step 2: Fetch and Index Repo Data
 
 ```bash
-# Fetch issue overview (1 GraphQL point)
-uv run gh-triage issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+# Fetch issue overview (~1 GraphQL point)
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
 
 # Convert gh-triage JSON to .txt records
 python3 ${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py /tmp/gh-triage/OWNER__REPO

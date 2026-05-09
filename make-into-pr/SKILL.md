@@ -1,8 +1,8 @@
 ---
 name: make-into-pr
-description: Turn a local change into a high-confidence PR by doing a rigorous self-review, tightening tests/docs/benchmarks, creating the PR, and then following it until merge-ready or merged.
-argument-hint: [optional owner/repo, branch/base, or PR title hints]
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, Agent
+description: Turn a local change into a high-confidence PR — rigorous self-review, tests, create PR, then follow until merged.
+argument-hint: "[optional owner/repo, branch/base, or PR title hints]"
+allowed-tools: Read Grep Glob Bash Edit Write WebFetch WebSearch Agent
 ---
 
 # Make Into PR
@@ -18,7 +18,7 @@ For the current worktree:
 2. Perform an in-depth self-review like a strong external reviewer would.
 3. Improve organization, naming, docs, tests, and benchmark evidence until the change is genuinely PR-ready.
 4. Create the PR with a clear description and validation summary.
-5. Immediately transition into [$follow-the-pr](${CLAUDE_SKILL_DIR}/follow-the-pr/SKILL.md) and keep looping on feedback, CI, and review until the PR is merged or explicitly paused.
+5. Immediately transition into [$follow-the-pr](${CLAUDE_SKILL_DIR}/../follow-the-pr/SKILL.md) and keep looping on feedback, CI, and review until the PR is merged or explicitly paused.
 
 ## Review Standard
 
@@ -141,7 +141,7 @@ Fix and update the PR before moving on.
 
 ## Phase 7: Follow Through Until Merge
 
-After the PR is up, immediately switch into [$follow-the-pr](${CLAUDE_SKILL_DIR}/follow-the-pr/SKILL.md).
+After the PR is up, immediately switch into [$follow-the-pr](${CLAUDE_SKILL_DIR}/../follow-the-pr/SKILL.md).
 
 That means:
 - watch for CI changes

@@ -1,9 +1,10 @@
-# ---
-# name: cloudflare-durable-objects
-# description: Expert guidance and patterns for building, optimizing, and operating Cloudflare Durable Objects, including SQLite storage, hibernation, WebSockets, migration, and cost control. Use for architecture, pricing, persistence, and advanced DO usage.
-# argument-hint: ["topic or question, e.g. 'SQLite migration', 'WebSocket hibernation', 'cost optimization'"]
-# allowed-tools: Read, Grep, Glob, Bash, Agent
-# ---
+---
+name: cloudflare-durable-objects
+description: Patterns and guidance for building Cloudflare Durable Objects — SQLite storage, hibernation, WebSockets, migrations, and cost optimization.
+argument-hint: "[topic e.g. 'SQLite migration', 'WebSocket hibernation', 'pricing']"
+allowed-tools: Read Grep Glob Bash Agent
+---
+
 # Cloudflare Durable Objects Skill
 
 ## Overview
@@ -78,11 +79,11 @@ const value = await this.ctx.storage.get("key");
 **Transaction Patterns:**
 
 ```typescript
-// Auto-transaction: consecutive writes without await are atomic
-await this.ctx.storage.put("key1", value1);
-await this.ctx.storage.put("key2", value2); // Atomic with above
+// Consecutive sync writes (no await between) are auto-coalesced into one txn
+this.ctx.storage.sql.exec("INSERT INTO ...", [args1]);
+this.ctx.storage.sql.exec("INSERT INTO ...", [args2]);
 
-// Explicit transaction (async)
+// Explicit transaction (async, for KV operations)
 await this.ctx.storage.transaction(async (txn) => {
   await txn.put("key1", value1);
   await txn.put("key2", value2);
@@ -94,7 +95,7 @@ this.ctx.storage.transactionSync(() => {
 });
 ```
 
-**Note**: With SQLite backend, the `txn` object is obsolete. Any storage operations on `ctx.storage` are automatically transactional.
+**Note**: With SQLite backend, consecutive synchronous `sql.exec` calls are auto-coalesced. Use `transactionSync` for explicit transaction boundaries.
 
 ### Key-Value (Legacy)
 
@@ -498,42 +499,6 @@ export class AgentSession {
 
 ---
 
-## o11yfleet-Specific Patterns
-
-From o11yfleet's implementation:
-
-### ConfigDO Structure
-```typescript
-// Based on o11yfleet's durable-objects.md patterns
-export class ConfigDO implements DurableObject {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id TEXT PRIMARY KEY,
-        instance_uid TEXT,
-        sequence_number INTEGER,
-        config_hash TEXT,
-        last_seen INTEGER,
-        status TEXT
-      )
-    `);
-  }
-
-  // RPC methods for agent state management
-  async getAgentState(agentId: string): Promise<AgentState | null> { }
-  async updateAgentState(agentId: string, updates: Partial<AgentState>): Promise<void> { }
-}
-```
-
-### Key Patterns from o11yfleet
-- State machines for agent status
-- Atomic multi-step updates with transactions
-- Incremental state persistence (don't wait until end)
-- SQLite for agent state, KV for simple flags
-
----
-
 ## Important Rules
 
 1. **Design around your atom** — One DO per logical unit, not global singletons
@@ -559,4 +524,3 @@ export class ConfigDO implements DurableObject {
 - Pricing: https://developers.cloudflare.com/durable-objects/platform/pricing
 - SQLite GA: https://blog.cloudflare.com/en-us/sqlite-in-durable-objects/
 - Best Practices: https://developers.cloudflare.com/durable-objects/best-practices/rules-of-durable-objects/
-- o11yfleet docs: `/docs/architecture/durable-objects.md`

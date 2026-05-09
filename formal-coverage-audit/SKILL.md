@@ -1,11 +1,8 @@
 ---
 name: formal-coverage-audit
-description: Run a rigorous, codebase-wide audit of formal and property verification coverage (TLA+/TLC, Kani, proptest), build an implementation-to-spec traceability matrix, and produce a prioritized execution plan to maximize verified coverage with minimal proof debt.
-argument-hint: [optional scope, e.g. "pipeline only", "crate logfwd-io", "new code since PR #1600", "full repo"]
-allowed-tools: Read, Grep, Glob, Bash, Agent, Edit, Write, WebFetch
-context: fork
-agent: general-purpose
-effort: thorough
+description: Audit formal verification coverage (TLA+/TLC, Kani, proptest), build a traceability matrix, and produce a prioritized plan to close gaps.
+argument-hint: "[optional scope, e.g. 'pipeline only', 'crate logfwd-io', 'new code since PR #1600', 'full repo']"
+allowed-tools: Read Grep Glob Bash Agent Edit Write WebFetch
 ---
 
 # Formal Coverage Audit (TLA+ / Kani / proptest)
@@ -51,7 +48,7 @@ Run inventory discovery:
 ```bash
 rg -n "#\\[kani::proof\\]|kani::requires|kani::ensures|kani::cover!|kani::assume" crates --glob "*.rs"
 rg -n "proptest!|prop_assert|proptest_state_machine|proptest::" crates --glob "*.rs"
-rg -n "\\.tla$|\\.cfg$" tla
+find tla/ -type f \( -name "*.tla" -o -name "*.cfg" \) 2>/dev/null
 rg -n "pub fn|pub async fn|pub\\(crate\\) fn|pub\\(crate\\) async fn" crates --glob "*.rs"
 ```
 

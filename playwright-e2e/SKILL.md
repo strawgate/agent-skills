@@ -1,8 +1,8 @@
 ---
 name: playwright-e2e
-description: Write and run end-to-end Playwright tests to validate frontend UI changes — confirm modals open, mutations fire the right endpoints, toasts render, capability gating works, accessibility roles resolve. Use when CLAUDE.md or the user demands browser verification of a UI change and you can't actually click — Playwright is your browser. Detects the project's existing Playwright setup, mocks the API, exercises the new flows, and reports pass/fail with screenshots on failure. Distinct from the playwright-cli skill which is for interactive snapshot-driven browser automation.
-argument-hint: [test-file-glob or --new <name>]
-allowed-tools: Read, Edit, Write, Bash, Grep, Glob
+description: Write and run end-to-end Playwright tests to validate frontend UI changes — mock the API, drive the browser, assert what the user would see.
+argument-hint: "[test-file-glob or --new <name>]"
+allowed-tools: Read Edit Write Bash Grep Glob
 ---
 
 # Playwright E2E

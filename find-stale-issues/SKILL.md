@@ -1,7 +1,8 @@
 ---
 name: find-stale-issues
-description: Audit all open GitHub issues against PRs and codebase to find stale, resolved, duplicate, and overlapping issues. Use when the user says "find stale issues", "stale issues", "issue audit", "audit issues", "clean up issues", "issue triage", or "find-stale-issues".
+description: Audit open GitHub issues against PRs and codebase to find stale, resolved, duplicate, and overlapping issues.
 argument-hint: "[owner/repo and optional scope e.g. 'strawgate/logfwd', 'strawgate/logfwd label:bug', 'strawgate/logfwd since 2025-01-01']"
+allowed-tools: Read Grep Glob Bash Agent
 ---
 
 # Issue Audit
@@ -10,7 +11,11 @@ Audit all open GitHub issues against recently closed PRs, merged PRs, recent com
 
 ## Scripts
 
-- [Build semantic indexes](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh)
+- [gh-issues](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues) — fetch all open issues
+- [gh-issue-details](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issue-details) — fetch full details for a single issue
+- [gh-prs](${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs) — fetch all open PRs
+- [gh-triage-to-records.py](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/gh-triage-to-records.py) — convert JSON to text records
+- [build-semantic-index.sh](${CLAUDE_SKILL_DIR}/../_shared/github-repo-inventory/scripts/build-semantic-index.sh) — build similarity indexes
 
 ## Step 0: Determine the Target Repo
 
@@ -22,16 +27,13 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 
 If neither works, **ask the user**. Store as `OWNER/REPO`.
 
-## Step 1: Fetch Repo Data with gh-triage
+## Step 1: Fetch Repo Data
 
-Use the gh-triage package to fetch issues and PRs:
+Fetch issues and PRs:
 
 ```bash
-# Fetch issue overview (1 GraphQL point)
-uv run gh-triage issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
-
-# Fetch PR overview (1 GraphQL point)
-uv run gh-triage prs OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-issues OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
+${CLAUDE_SKILL_DIR}/../_shared/gh-triage/scripts/gh-prs OWNER/REPO -o /tmp/gh-triage/OWNER__REPO
 ```
 
 gh-triage writes JSON directly to the specified output directory:
@@ -61,7 +63,7 @@ OWNER__REPO/
 └── prs-closed-last-20.txt        # Recent closed PRs
 ```
 
-## Step 2: Read Project Docs
+## Step 2: Build Semantic Indexes
 
 Read these files if they exist (skip missing ones silently):
 
